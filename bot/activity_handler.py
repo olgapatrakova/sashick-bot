@@ -37,7 +37,7 @@ class DialogBot(ActivityHandler):
     async def on_conversation_update_activity(self, turn_context: TurnContext):
         already_welcomed = await self.welcomed.get(turn_context, default_value_or_factory=False)
         if not already_welcomed:
-            await turn_context.send_activity(MessageFactory.text("Hello. I'm Sashick. I will help you learn new things using spaced repetition technique. Good luck!"))
+            await turn_context.send_activity(MessageFactory.text("Hello. I'm Sashick. I will help you learn new things using spaced repetition technique."))
             await self.welcomed.set(turn_context, True)
         await super(self.__class__, self).on_conversation_update_activity(turn_context)
         await DialogHelper.run_dialog(
