@@ -4,7 +4,7 @@ from django.db.models import DateTimeField, IntegerField
 class Deck(models.Model):
     title = models.CharField(max_length=255)
 
-    def __unicode__(self):
+    def __str__(self):
         return self.title
 
 class Card(models.Model):
@@ -12,7 +12,7 @@ class Card(models.Model):
     front = models.TextField()
     back = models.TextField()
 
-    def __unicode__(self):
+    def __str__(self):
         return self.front
 
 class Question(models.Model):
@@ -29,7 +29,7 @@ class Question(models.Model):
         choices=TYPE_CHOICES,
         default=TEXT,
     )
-    def __unicode__(self):
+    def __str__(self):
         return self.text
 
 class Answer(models.Model):
@@ -37,14 +37,14 @@ class Answer(models.Model):
     correct = models.NullBooleanField(blank=True)
     text = models.TextField()
 
-    def __unicode__(self):
+    def __str__(self):
         return self.text
 
 class User(models.Model):
     user_id = models.CharField(max_length=255, primary_key=True)
     last_interaction_time = models.DateTimeField(auto_now=True)
 
-    def __unicode__(self):
+    def __str__(self):
         return self.user_id
 
 class LearningMatrix(models.Model):
@@ -64,5 +64,5 @@ class LearningMatrix(models.Model):
             models.Index(fields=['user', 'card']),
         ]
 
-    def __unicode__(self):
+    def __str__(self):
         return f"{self.user} {self.card}"
