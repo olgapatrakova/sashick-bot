@@ -2,7 +2,7 @@ from django.db import models
 from django.db.models import DateTimeField, IntegerField
 
 class Deck(models.Model):
-    title = models.CharField()
+    title = models.CharField(max_length=255)
 
     def __unicode__(self):
         return self.title
@@ -41,8 +41,8 @@ class Answer(models.Model):
         return self.text
 
 class User(models.Model):
-    user_id = models.CharField(primary_key=True)
-    last_interaction_time = models.DateTimeField(auto_now=True, auto_now_add=True)
+    user_id = models.CharField(max_length=255, primary_key=True)
+    last_interaction_time = models.DateTimeField(auto_now=True)
 
     def __unicode__(self):
         return self.user_id
@@ -50,7 +50,7 @@ class User(models.Model):
 class LearningMatrix(models.Model):
     user = models.ForeignKey('User', on_delete=models.CASCADE, related_name='user')
     card = models.ForeignKey('Card', on_delete=models.CASCADE, related_name='card')
-    deck_title = models.CharField()
+    deck_title = models.CharField(max_length=255)
     last_shown = DateTimeField()
     show_after = DateTimeField()
     show_count = IntegerField()
