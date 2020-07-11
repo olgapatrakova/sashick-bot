@@ -4,6 +4,10 @@ from django.db.models import DateTimeField, IntegerField
 class Deck(models.Model):
     title = models.CharField(max_length=255)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=['title']),
+        ]
     def __str__(self):
         return self.title
 
