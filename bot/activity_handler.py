@@ -1,7 +1,12 @@
+from datetime import datetime
+from asgiref.sync import sync_to_async
 from botbuilder.core import ActivityHandler, ConversationState, TurnContext, UserState, MessageFactory
 from botbuilder.dialogs import Dialog
 from bot.dialog.helper import DialogHelper
+from bot.models import User
+from logging import getLogger
 
+logger = getLogger(__name__)
 
 class DialogBot(ActivityHandler):
     """
@@ -35,6 +40,8 @@ class DialogBot(ActivityHandler):
         await self.user_state.save_changes(turn_context)
 
     async def on_conversation_update_activity(self, turn_context: TurnContext):
+        user_id = turn_context.activity.members_added[1].id
+        await self.get_or_create_user(user_id)
         already_welcomed = await self.welcomed.get(turn_context, default_value_or_factory=False)
         if not already_welcomed:
             await turn_context.send_activity(MessageFactory.text("Hello. I'm Sashick. I will help you learn new things using spaced repetition technique."))
@@ -48,3 +55,14 @@ class DialogBot(ActivityHandler):
         await DialogHelper.run_dialog(
             self.dialog, turn_context, self.conversation_state.create_property("DialogState"),
         )
+
+    @sync_to_async
+    def get_or_create_user(self, user_id):
+        try:
+            obj = User.objects.get(user_id=user_id)
+        except User.DoesNotExist:
+            obj = User(user_id=user_id)
+        finally:
+            obj.last_interaction_time = datetime.now()
+            obj.save()
+        return obj

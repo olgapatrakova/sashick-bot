@@ -15,7 +15,7 @@ from botbuilder.dialogs.prompts import (
 )
 
 from bot.dialog.choose_topic_dialog import ChooseTopicDialog
-
+from bot.dialog.initial_learning import InitialLearningDialog
 
 class MainDialog(ComponentDialog):
     def __init__(self, conversation_state: ConversationState, user_state: UserState):
@@ -26,6 +26,7 @@ class MainDialog(ComponentDialog):
         self.add_dialog(WaterfallDialog(WaterfallDialog.__name__))
 
         self.add_dialog(ChooseTopicDialog(ChooseTopicDialog.__name__))
+        self.add_dialog(InitialLearningDialog(InitialLearningDialog.__name__))
 
         # launch the first dialog
         self.initial_dialog_id = ChooseTopicDialog.__name__
