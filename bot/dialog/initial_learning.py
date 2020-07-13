@@ -50,17 +50,19 @@ class InitialLearningDialog(ComponentDialog):
         easiness = step_context.result.value
         user_id = step_context.context.activity.from_property.id
         await self.mark_easy_hard(step_context.values['card'], user_id, easiness)
-        if await self.card_to_show(user_id):
-            return await step_context.replace_dialog(InitialLearningDialog.__name__)
-        else:
+        if await self.card_to_show(user_id) is None:
             await step_context.context.send_activity(MessageFactory.text("You have learned all cards in this topic."))
             return await step_context.end_dialog(True)
+        else:
+            return await step_context.replace_dialog(InitialLearningDialog.__name__)
 
     @sync_to_async
     def card_to_show(self, user):
-        return LearningMatrix.objects\
-            .filter(user=user, show_after__lte=datetime.now().astimezone())\
-            .latest('last_shown', '-hard_count').card
+        try:
+            lmx = LearningMatrix.objects.filter(user=user, show_after__lte=datetime.now().astimezone())
+            return lmx.latest('last_shown', '-hard_count').card
+        except LearningMatrix.DoesNotExist:
+            return None
 
     @sync_to_async
     def mark_easy_hard(self, card, user, easiness):

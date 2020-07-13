@@ -44,12 +44,12 @@ class ChooseTopicDialog(ComponentDialog):
         step_context.values['deck'] = step_context.result
         deck = await self.deck_id(step_context.result.value)
         step_context.values['deck_id'] = deck
-
+        cards_count = await self.cards_count(deck)
         # WaterfallStep always finishes with the end of the Waterfall or
         # with another dialog; here it is a Prompt Dialog.
         return await step_context.prompt(
             ConfirmPrompt.__name__,
-            PromptOptions(prompt=MessageFactory.text(f"You are going to learn {step_context.result.value}. Right?")),
+            PromptOptions(prompt=MessageFactory.text(f"You are going to learn {step_context.result.value} which contains {cards_count} cards. Right?")),
         )
 
     async def choose_again_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
@@ -59,8 +59,6 @@ class ChooseTopicDialog(ComponentDialog):
             deck_title = step_context.values['deck'].value
             # add all cards of a chosen deck to learning matrix
             await self.add_cards_to_learning_matrix(cards_list, user_id, deck_title)
-            cards_count = await len(self.cards(step_context.values['deck_id']))
-            await step_context.context.send_activity(MessageFactory.text(f"I have {cards_count} cards for you to learn."))
             return await step_context.replace_dialog(InitialLearningDialog.__name__)
         else:
             return await step_context.replace_dialog(ChooseTopicDialog.__name__)
@@ -82,8 +80,8 @@ class ChooseTopicDialog(ComponentDialog):
         return list(Card.objects.filter(deck=deck_id))
 
     @sync_to_async
-    def cards(self, deck_id):
-        return list(Card.objects.filter(deck=deck_id))
+    def cards_count(self, deck_id):
+        return len(list(Card.objects.filter(deck=deck_id)))
 
     @sync_to_async
     def add_cards_to_learning_matrix(self, cards_list, user_id, deck_title):
