@@ -51,7 +51,7 @@ class InitialLearningDialog(ComponentDialog):
         user_id = step_context.context.activity.from_property.id
         await self.mark_easy_hard(step_context.values['card'], user_id, easiness)
         if await self.card_to_show(user_id) is None:
-            await step_context.context.send_activity(MessageFactory.text("You have learned all cards in this topic."))
+            await step_context.context.send_activity(MessageFactory.text("Yay! You have learned all cards in this topic."))
             return await step_context.end_dialog(True)
         else:
             return await step_context.replace_dialog(InitialLearningDialog.__name__)

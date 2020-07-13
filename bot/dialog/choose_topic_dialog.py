@@ -35,7 +35,7 @@ class ChooseTopicDialog(ComponentDialog):
                 ),
             )
         else:
-            await step_context.context.send_activity(MessageFactory.text("Sorry, no new topics for you"))
+            await step_context.context.send_activity(MessageFactory.text("Sorry, no new topics for you to learn"))
             return await step_context.end_dialog(True)
 
     async def confirm_choice_step(
@@ -49,7 +49,7 @@ class ChooseTopicDialog(ComponentDialog):
         # with another dialog; here it is a Prompt Dialog.
         return await step_context.prompt(
             ConfirmPrompt.__name__,
-            PromptOptions(prompt=MessageFactory.text(f"You are going to learn {step_context.result.value} which contains {cards_count} cards. Right?")),
+            PromptOptions(prompt=MessageFactory.text(f"You are going to learn {step_context.result.value} which contains {cards_count} cards. Please confirm.")),
         )
 
     async def choose_again_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
