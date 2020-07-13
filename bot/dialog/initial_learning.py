@@ -14,30 +14,68 @@ class InitialLearningDialog(ComponentDialog):
         super(InitialLearningDialog, self).__init__(dialog_id or InitialLearningDialog.__name__)
 
         self.add_dialog(WaterfallDialog(WaterfallDialog.__name__,
-                                        [self.show_card_step, self.show_answer_step,]))
+                                        [self.show_card_step, self.show_answer_step, self.loop_step]))
         self.add_dialog(ChoicePrompt(ChoicePrompt.__name__))
         self.initial_dialog_id = WaterfallDialog.__name__
 
     async def show_card_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
-        if step_context.options is None:
-            raise Exception("internal error, cards list was not passed in")
+        user_id = step_context.context.activity.from_property.id
+        new_card = await self.card_to_show(user_id)
 
-        cards_list = step_context.options
-        for card in cards_list:
-            await step_context.context.send_activity(MessageFactory.text(f"{card.front}"))
-            await step_context.prompt(
-                ChoicePrompt.__name__,
-                PromptOptions(
-                    choices=[Choice("Show answer")],
-                ),
-            )
-            step_context.values['card'] = step_context.result
-        return await step_context.end_dialog(True)
+        await step_context.context.send_activity(MessageFactory.text(f"{new_card.front}"))
+        step_context.values['card'] = new_card
+        return await step_context.prompt(
+            ChoicePrompt.__name__,
+            PromptOptions(
+                choices=[Choice("Show answer")],
+            ),
+        )
 
     async def show_answer_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
         if step_context.result:
-            await step_context.context.send_activity(MessageFactory.text(f"{step_context.values['card'].back}"))
+            card = step_context.values['card']
+            user_id = step_context.context.activity.from_property.id
+            await self.update_card_show_time(card, user_id)
+            await step_context.context.send_activity(MessageFactory.text(f"{card.back}"))
+            return await step_context.prompt(
+                ChoicePrompt.__name__,
+                PromptOptions(
+                    prompt=MessageFactory.text("Please choose if this card was easy or hard."),
+                    choices=[Choice("Easy"), Choice("Hard")],
+                ),
+            )
+
+
+    async def loop_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
+        easiness = step_context.result.value
+        user_id = step_context.context.activity.from_property.id
+        await self.mark_easy_hard(step_context.values['card'], user_id, easiness)
+        if await self.card_to_show(user_id):
+            return await step_context.replace_dialog(InitialLearningDialog.__name__)
+        else:
+            await step_context.context.send_activity(MessageFactory.text("You have learned all cards in this topic."))
+            return await step_context.end_dialog(True)
 
     @sync_to_async
-    def cards(self, deck_id):
-        return list(Card.objects.filter(deck=deck_id))
+    def card_to_show(self, user):
+        return LearningMatrix.objects\
+            .filter(user=user, show_after__lte=datetime.now().astimezone())\
+            .latest('last_shown', '-hard_count').card
+
+    @sync_to_async
+    def mark_easy_hard(self, card, user, easiness):
+        lmx = LearningMatrix.objects.get(user=user, card=card)
+        if easiness == "Easy":
+            lmx.easy_count += 1
+        else:
+            lmx.hard_count += 1
+        lmx.save()
+
+    @sync_to_async
+    def update_card_show_time(self, card, user):
+        lmx = LearningMatrix.objects.get(user=user, card=card)
+        lmx.last_shown = datetime.now().astimezone()
+        lmx.show_after = datetime.now().astimezone() + timedelta(days=1)
+        lmx.show_count += 1
+        lmx.save()
+

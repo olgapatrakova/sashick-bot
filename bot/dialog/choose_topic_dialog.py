@@ -59,7 +59,9 @@ class ChooseTopicDialog(ComponentDialog):
             deck_title = step_context.values['deck'].value
             # add all cards of a chosen deck to learning matrix
             await self.add_cards_to_learning_matrix(cards_list, user_id, deck_title)
-            return await step_context.begin_dialog(InitialLearningDialog.__name__, cards_list)
+            cards_count = await len(self.cards(step_context.values['deck_id']))
+            await step_context.context.send_activity(MessageFactory.text(f"I have {cards_count} cards for you to learn."))
+            return await step_context.replace_dialog(InitialLearningDialog.__name__)
         else:
             return await step_context.replace_dialog(ChooseTopicDialog.__name__)
 
@@ -80,6 +82,10 @@ class ChooseTopicDialog(ComponentDialog):
         return list(Card.objects.filter(deck=deck_id))
 
     @sync_to_async
+    def cards(self, deck_id):
+        return list(Card.objects.filter(deck=deck_id))
+
+    @sync_to_async
     def add_cards_to_learning_matrix(self, cards_list, user_id, deck_title):
         user = User.objects.get(pk=user_id)
         for card in cards_list:
@@ -87,9 +93,9 @@ class ChooseTopicDialog(ComponentDialog):
                 user=user,
                 card=card,
                 deck_title=deck_title,
-                last_shown=datetime.now().astimezone(),
-                show_after=datetime.now().astimezone() + timedelta(days=5),
-                show_count=1,
+                last_shown=datetime.utcfromtimestamp(0),
+                show_after=datetime.utcfromtimestamp(0),
+                show_count=0,
                 easy_count=0,
                 hard_count=0
             ).save()
