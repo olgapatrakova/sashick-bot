@@ -4,7 +4,8 @@ from random import randint
 from asgiref.sync import sync_to_async
 from botbuilder.core import MessageFactory
 from botbuilder.dialogs import ComponentDialog, WaterfallDialog, \
-    WaterfallStepContext, DialogTurnResult, PromptOptions, ChoicePrompt, Choice
+    WaterfallStepContext, DialogTurnResult, PromptOptions, ChoicePrompt, Choice, TextPrompt
+from django.db.models import Subquery
 
 from bot.models import LearningMatrix, ShownQuestion, Question
 
@@ -15,7 +16,7 @@ class QuizDialog(ComponentDialog):
 
         self.add_dialog(WaterfallDialog(WaterfallDialog.__name__,
                                         [self.show_question_step,]))
-        self.add_dialog(ChoicePrompt(ChoicePrompt.__name__))
+        self.add_dialog(TextPrompt(TextPrompt.__name__))
         self.initial_dialog_id = WaterfallDialog.__name__
 
     async def show_question_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
@@ -23,24 +24,32 @@ class QuizDialog(ComponentDialog):
         if step_context.options is None:
             raise Exception("internal error, card not passed in")
         new_card = step_context.options
-        await self.find_question(new_card, user_id)
 
-        # step_context.values['card'] = new_card
-        return await step_context.prompt(
-            ChoicePrompt.__name__,
-            PromptOptions(
-                choices=[Choice("Show answer")],
-            ),
-        )
+        if await self.has_card_question(new_card):
+            question_to_ask = await self.get_question(new_card, user_id)
+            return await step_context.prompt(
+                TextPrompt.__name__,
+                PromptOptions(prompt=MessageFactory.text(f"{question_to_ask}")),
+            )
+    # async def check_answer_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
+    #
+    #     step_context.values["name"] = step_context.result
 
     @sync_to_async
-    def find_question(self, card, user):
-        questions = Question.objects.filter(card=card)
-        if not questions:
-            return None
-        else:
-            for question in questions:
-                try:
-                    ShownQuestion.objects.get(user=user, question=question)
-                except ShownQuestion.DoesNotExist:
-                    return question
+    def has_card_question(self, card):
+        return Question.objects.filter(card=card).count() > 0
+
+    @sync_to_async
+    def mark_question_as_shown(self, card):
+        pass
+
+    @sync_to_async
+    def get_question(self, card, user):
+        shown_questions = ShownQuestion.objects.filter(user=user, card=card).values("question_id")
+        # find all decks except those that are in progress
+        questions = Question.objects.filter(card=card).exclude(id__in=Subquery(shown_questions))
+        if not questions.count():
+            ShownQuestion.objects.filter(user=user, card=card).delete()
+            questions = Question.objects.filter(card=card)
+        return questions.first()
+

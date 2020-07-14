@@ -73,13 +73,14 @@ class LearningMatrix(models.Model):
 
 class ShownQuestion(models.Model):
     user = models.ForeignKey('User', on_delete=models.CASCADE)
+    card = models.ForeignKey('Card', on_delete=models.CASCADE)
     question = models.ForeignKey('Question', on_delete=models.CASCADE, related_name='question')
 
     class Meta:
-        unique_together = [['user', 'question']]
+        unique_together = [['user', 'card']]
 
         indexes = [
-            models.Index(fields=['user', 'question']),
+            models.Index(fields=['user', 'card']),
         ]
 
     def __str__(self):

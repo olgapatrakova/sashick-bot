@@ -25,8 +25,8 @@ class InitialLearningDialog(ComponentDialog):
         step_context.values['card'] = new_card
 
         # a question will be asked only if a card was already shown and learned, meaning that it's marked as easy
-        if new_card.easy_count > 0:
-            await step_context.begin_dialog(QuizDialog.__name__, new_card)
+        if await self.get_easy_count(new_card, user_id) == 0:
+            return await step_context.begin_dialog(QuizDialog.__name__, new_card)
 
         return await step_context.prompt(
             ChoicePrompt.__name__,
@@ -68,6 +68,10 @@ class InitialLearningDialog(ComponentDialog):
             return lmx.latest('last_shown', '-hard_count').card
         except LearningMatrix.DoesNotExist:
             return None
+
+    @sync_to_async
+    def get_easy_count(self, card, user):
+        return LearningMatrix.objects.get(user=user, card=card).easy_count
 
     @sync_to_async
     def mark_easy_hard(self, card, user, easiness):
