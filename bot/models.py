@@ -72,7 +72,7 @@ class LearningMatrix(models.Model):
         return f"{self.user} {self.card}"
 
 class ShownQuestion(models.Model):
-    user = models.ForeignKey('User', on_delete=models.CASCADE, related_name='user')
+    user = models.ForeignKey('User', on_delete=models.CASCADE)
     question = models.ForeignKey('Question', on_delete=models.CASCADE, related_name='question')
 
     class Meta:
