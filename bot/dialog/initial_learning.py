@@ -21,9 +21,13 @@ class InitialLearningDialog(ComponentDialog):
     async def show_card_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
         user_id = step_context.context.activity.from_property.id
         new_card = await self.card_to_show(user_id)
-
         await step_context.context.send_activity(MessageFactory.text(f"{new_card.front}"))
         step_context.values['card'] = new_card
+
+        # a question will be asked only if a card was already shown and learned, meaning that it's marked as easy
+        if new_card.easy_count > 0:
+            await step_context.begin_dialog(QuizDialog.__name__, new_card)
+
         return await step_context.prompt(
             ChoicePrompt.__name__,
             PromptOptions(
@@ -52,8 +56,8 @@ class InitialLearningDialog(ComponentDialog):
         await self.mark_easy_hard(step_context.values['card'], user_id, easiness)
         if await self.card_to_show(user_id) is None:
             await step_context.context.send_activity(MessageFactory.text("Yay! You have learned all cards in this topic."))
-            await step_context.end_dialog(True)
-            return await step_context.replace_dialog(QuizDialog.__name__)
+            return await step_context.end_dialog(True)
+            # await step_context.replace_dialog(QuizDialog.__name__)
         else:
             return await step_context.replace_dialog(InitialLearningDialog.__name__)
 
