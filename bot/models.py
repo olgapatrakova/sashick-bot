@@ -70,3 +70,17 @@ class LearningMatrix(models.Model):
 
     def __str__(self):
         return f"{self.user} {self.card}"
+
+class ShownQuestion(models.Model):
+    user = models.ForeignKey('User', on_delete=models.CASCADE, related_name='user')
+    question = models.ForeignKey('Question', on_delete=models.CASCADE, related_name='question')
+
+    class Meta:
+        unique_together = [['user', 'question']]
+
+        indexes = [
+            models.Index(fields=['user', 'question']),
+        ]
+
+    def __str__(self):
+        return f"{self.user} {self.question}"

@@ -1,21 +1,13 @@
-# Copyright (c) Microsoft Corporation. All rights reserved.
-# Licensed under the MIT License.
-
-from botbuilder.core import MessageFactory, UserState, ConversationState
+from botbuilder.core import UserState, ConversationState
 from botbuilder.dialogs import (
     ComponentDialog,
     WaterfallDialog,
-    WaterfallStepContext,
-    DialogTurnResult,
-)
-from botbuilder.dialogs.prompts import (
-    ConfirmPrompt,
-    PromptOptions,
-    PromptValidatorContext,
 )
 
 from bot.dialog.choose_topic_dialog import ChooseTopicDialog
 from bot.dialog.initial_learning import InitialLearningDialog
+from bot.dialog.quiz import QuizDialog
+
 
 class MainDialog(ComponentDialog):
     def __init__(self, conversation_state: ConversationState, user_state: UserState):
@@ -27,7 +19,7 @@ class MainDialog(ComponentDialog):
 
         self.add_dialog(ChooseTopicDialog(ChooseTopicDialog.__name__))
         self.add_dialog(InitialLearningDialog(InitialLearningDialog.__name__))
-
+        self.add_dialog(QuizDialog(QuizDialog.__name__))
         # launch the first dialog
         self.initial_dialog_id = ChooseTopicDialog.__name__
 

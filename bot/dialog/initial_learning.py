@@ -3,11 +3,11 @@ from datetime import datetime, timedelta
 from asgiref.sync import sync_to_async
 from botbuilder.core import MessageFactory
 from botbuilder.dialogs import ComponentDialog, WaterfallDialog, \
-    WaterfallStepContext, DialogTurnResult, PromptOptions, ChoicePrompt, Choice, ConfirmPrompt
-from django.db.models import Subquery
+    WaterfallStepContext, DialogTurnResult, PromptOptions, ChoicePrompt, Choice
 
-from bot.models import Deck, Card, LearningMatrix, User
-from logging import getLogger
+from bot.dialog.quiz import QuizDialog
+from bot.models import LearningMatrix
+
 
 class InitialLearningDialog(ComponentDialog):
     def __init__(self, dialog_id: str = None):
@@ -52,7 +52,8 @@ class InitialLearningDialog(ComponentDialog):
         await self.mark_easy_hard(step_context.values['card'], user_id, easiness)
         if await self.card_to_show(user_id) is None:
             await step_context.context.send_activity(MessageFactory.text("Yay! You have learned all cards in this topic."))
-            return await step_context.end_dialog(True)
+            await step_context.end_dialog(True)
+            return await step_context.replace_dialog(QuizDialog.__name__)
         else:
             return await step_context.replace_dialog(InitialLearningDialog.__name__)
 
