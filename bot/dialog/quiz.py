@@ -7,7 +7,7 @@ from botbuilder.dialogs import ComponentDialog, WaterfallDialog, \
     WaterfallStepContext, DialogTurnResult, PromptOptions, ChoicePrompt, Choice, TextPrompt
 from django.db.models import Subquery
 
-from bot.models import LearningMatrix, ShownQuestion, Question, Answer
+from bot.models import LearningMatrix, ShownQuestion, Question, Answer, Card
 
 
 class QuizDialog(ComponentDialog):
@@ -43,7 +43,21 @@ class QuizDialog(ComponentDialog):
             return await step_context.end_dialog(True)
         else:
             await step_context.context.send_activity(MessageFactory.text("Not correct."))
+            # show one of the correct answers if the back of the card is different. Else show the back of the card only
+            question = step_context.values['question']
+            if await self.correct_answer_is_different(question):
+                correct_answer = await self.correct_answer(step_context.values['question'])
+                await step_context.context.send_activity(MessageFactory.text(f"Correct answer is: {correct_answer}"))
             return await step_context.end_dialog(True)
+
+    @sync_to_async
+    def correct_answer(self, question):
+        return question.answers.first()
+
+    @sync_to_async
+    def correct_answer_is_different(self, question):
+        card_back = Card.objects.get(pk=question.card_id).back
+        return not question.answers.filter(text__iexact=card_back).exists()
 
     @sync_to_async
     def check_answer(self, user_answer, question):
