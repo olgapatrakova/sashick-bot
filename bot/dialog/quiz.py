@@ -7,7 +7,7 @@ from botbuilder.dialogs import ComponentDialog, WaterfallDialog, \
     WaterfallStepContext, DialogTurnResult, PromptOptions, ChoicePrompt, Choice, TextPrompt
 from django.db.models import Subquery
 
-from bot.models import LearningMatrix, ShownQuestion, Question, Answer, Card
+from bot.models import LearningMatrix, ShownQuestion, Question, User, Card
 
 
 class QuizDialog(ComponentDialog):
@@ -28,8 +28,9 @@ class QuizDialog(ComponentDialog):
         if await self.has_card_question(new_card):
             question_to_ask = await self.get_question(new_card, user_id)
             step_context.values['question'] = question_to_ask
-            # TODO add this question to ShownQuestions
-
+            # add this question to ShownQuestions
+            user_id = step_context.context.activity.from_property.id
+            await self.mark_question_as_shown(question_to_ask, user_id)
             return await step_context.prompt(
                 TextPrompt.__name__,
                 PromptOptions(prompt=MessageFactory.text(f"{question_to_ask}")),
@@ -68,8 +69,10 @@ class QuizDialog(ComponentDialog):
         return Question.objects.filter(card=card).count() > 0
 
     @sync_to_async
-    def mark_question_as_shown(self, card):
-        pass
+    def mark_question_as_shown(self, question, user_id):
+        user = User.objects.get(pk=user_id)
+        card = Card.objects.get(pk=question.card_id)
+        ShownQuestion(user=user, card=card, question=question).save()
 
     @sync_to_async
     def get_question(self, card, user):
