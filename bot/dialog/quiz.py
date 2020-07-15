@@ -7,7 +7,7 @@ from botbuilder.dialogs import ComponentDialog, WaterfallDialog, \
     WaterfallStepContext, DialogTurnResult, PromptOptions, ChoicePrompt, Choice, TextPrompt
 from django.db.models import Subquery
 
-from bot.models import LearningMatrix, ShownQuestion, Question
+from bot.models import LearningMatrix, ShownQuestion, Question, Answer
 
 
 class QuizDialog(ComponentDialog):
@@ -15,7 +15,7 @@ class QuizDialog(ComponentDialog):
         super(QuizDialog, self).__init__(dialog_id or QuizDialog.__name__)
 
         self.add_dialog(WaterfallDialog(WaterfallDialog.__name__,
-                                        [self.show_question_step,]))
+                                        [self.show_question_step, self.check_answer_step,]))
         self.add_dialog(TextPrompt(TextPrompt.__name__))
         self.initial_dialog_id = WaterfallDialog.__name__
 
@@ -27,13 +27,27 @@ class QuizDialog(ComponentDialog):
 
         if await self.has_card_question(new_card):
             question_to_ask = await self.get_question(new_card, user_id)
+            step_context.values['question'] = question_to_ask
+            # TODO add this question to ShownQuestions
+
             return await step_context.prompt(
                 TextPrompt.__name__,
                 PromptOptions(prompt=MessageFactory.text(f"{question_to_ask}")),
             )
-    # async def check_answer_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
-    #
-    #     step_context.values["name"] = step_context.result
+
+    async def check_answer_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
+        user_answer = step_context.result
+        is_correct = await self.check_answer(user_answer, step_context.values['question'])
+        if is_correct:
+            await step_context.context.send_activity(MessageFactory.text("Correct!"))
+            return await step_context.end_dialog(True)
+        else:
+            await step_context.context.send_activity(MessageFactory.text("Not correct."))
+            return await step_context.end_dialog(True)
+
+    @sync_to_async
+    def check_answer(self, user_answer, question):
+        return question.answers.filter(text__iexact=user_answer).exists()
 
     @sync_to_async
     def has_card_question(self, card):

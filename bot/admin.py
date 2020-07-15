@@ -8,10 +8,13 @@ class CardAdmin(admin.ModelAdmin):
     list_filter = ['deck']
 
 
+class AnswerAdmin(admin.ModelAdmin):
+    list_display = ('question','correct','text')
+
 admin.site.register(Deck)
 admin.site.register(Card, CardAdmin)
 admin.site.register(Question)
-admin.site.register(Answer)
+admin.site.register(Answer,AnswerAdmin)
 admin.site.register(User)
 admin.site.register(LearningMatrix)
 admin.site.register(ShownQuestion)
