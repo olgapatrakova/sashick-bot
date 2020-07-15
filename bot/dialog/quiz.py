@@ -1,13 +1,10 @@
-from datetime import datetime, timedelta
-from random import randint
-
 from asgiref.sync import sync_to_async
 from botbuilder.core import MessageFactory
 from botbuilder.dialogs import ComponentDialog, WaterfallDialog, \
-    WaterfallStepContext, DialogTurnResult, PromptOptions, ChoicePrompt, Choice, TextPrompt
+    WaterfallStepContext, DialogTurnResult, PromptOptions, TextPrompt
 from django.db.models import Subquery
 
-from bot.models import LearningMatrix, ShownQuestion, Question, User, Card
+from bot.models import ShownQuestion, Question, User, Card
 
 
 class QuizDialog(ComponentDialog):
@@ -77,7 +74,6 @@ class QuizDialog(ComponentDialog):
     @sync_to_async
     def get_question(self, card, user):
         shown_questions = ShownQuestion.objects.filter(user=user, card=card).values("question_id")
-        # find all decks except those that are in progress
         questions = Question.objects.filter(card=card).exclude(id__in=Subquery(shown_questions))
         if not questions.count():
             ShownQuestion.objects.filter(user=user, card=card).delete()

@@ -24,8 +24,8 @@ class InitialLearningDialog(ComponentDialog):
         await step_context.context.send_activity(MessageFactory.text(f"{new_card.front}"))
         step_context.values['card'] = new_card
 
-        # a question will be asked only if a card was already shown and learned, meaning that it's marked as easy
-        if await self.get_easy_count(new_card, user_id) == 0:
+        # a quiz question will be shown only if a card was already shown and learned, meaning that it's marked as easy
+        if await self.get_easy_count(new_card, user_id) > 0:
             return await step_context.begin_dialog(QuizDialog.__name__, new_card)
 
         return await step_context.prompt(
@@ -44,7 +44,7 @@ class InitialLearningDialog(ComponentDialog):
             return await step_context.prompt(
                 ChoicePrompt.__name__,
                 PromptOptions(
-                    prompt=MessageFactory.text("Please choose if this card was easy or hard."),
+                    prompt=MessageFactory.text("Please choose if this card was easy or hard for you."),
                     choices=[Choice("Easy"), Choice("Hard")],
                 ),
             )
@@ -57,17 +57,16 @@ class InitialLearningDialog(ComponentDialog):
         if await self.card_to_show(user_id) is None:
             await step_context.context.send_activity(MessageFactory.text("Yay! You have learned all cards in this topic."))
             return await step_context.end_dialog(True)
-            # await step_context.replace_dialog(QuizDialog.__name__)
         else:
             return await step_context.replace_dialog(InitialLearningDialog.__name__)
 
     @sync_to_async
     def card_to_show(self, user):
-        try:
-            lmx = LearningMatrix.objects.filter(user=user, show_after__lte=datetime.now().astimezone())
-            return lmx.latest('last_shown', '-hard_count').card
-        except LearningMatrix.DoesNotExist:
-            return None
+        lmx = LearningMatrix.objects.filter(user=user, show_after__lte=datetime.now().astimezone())
+        card_obj = lmx.order_by('last_shown', '-hard_count').first()
+        if card_obj:
+            return card_obj.card
+
 
     @sync_to_async
     def get_easy_count(self, card, user):
@@ -75,9 +74,12 @@ class InitialLearningDialog(ComponentDialog):
 
     @sync_to_async
     def mark_easy_hard(self, card, user, easiness):
+        spaced_repetition = {1: 1, 2: 6, 3: 9, 4: 19}
         lmx = LearningMatrix.objects.get(user=user, card=card)
         if easiness == "Easy":
             lmx.easy_count += 1
+            repeat_after_days = spaced_repetition[lmx.easy_count]
+            lmx.show_after = datetime.now().astimezone() + timedelta(days=repeat_after_days)
         else:
             lmx.hard_count += 1
         lmx.save()
@@ -86,7 +88,6 @@ class InitialLearningDialog(ComponentDialog):
     def update_card_show_time(self, card, user):
         lmx = LearningMatrix.objects.get(user=user, card=card)
         lmx.last_shown = datetime.now().astimezone()
-        lmx.show_after = datetime.now().astimezone() + timedelta(days=1)
         lmx.show_count += 1
         lmx.save()
 
