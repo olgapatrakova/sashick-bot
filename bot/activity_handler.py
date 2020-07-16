@@ -2,11 +2,14 @@ from datetime import datetime
 from asgiref.sync import sync_to_async
 from botbuilder.core import ActivityHandler, ConversationState, TurnContext, UserState, MessageFactory
 from botbuilder.dialogs import Dialog
+from botbuilder.schema import Attachment, Activity, ActivityTypes
+
 from bot.dialog.helper import DialogHelper
 from bot.models import User
 from logging import getLogger
 
 logger = getLogger(__name__)
+
 
 class DialogBot(ActivityHandler):
     """
@@ -18,7 +21,7 @@ class DialogBot(ActivityHandler):
     """
 
     def __init__(
-        self, conversation_state: ConversationState, user_state: UserState, dialog: Dialog,
+            self, conversation_state: ConversationState, user_state: UserState, dialog: Dialog,
     ):
         if conversation_state is None:
             raise TypeError("[DialogBot]: Missing parameter. conversation_state is required but None was given")
@@ -44,8 +47,10 @@ class DialogBot(ActivityHandler):
         await self.get_or_create_user(user_id)
         already_welcomed = await self.welcomed.get(turn_context, default_value_or_factory=False)
         if not already_welcomed:
-            await turn_context.send_activity(MessageFactory.text("Hello, I'm Sashick. I will help you learn new things using spaced repetition technique."))
+            await turn_context.send_activity(MessageFactory.text(
+                "Hello, I'm Sashick. I will help you learn new things using spaced repetition technique."))
             await self.welcomed.set(turn_context, True)
+
         await super(self.__class__, self).on_conversation_update_activity(turn_context)
         await DialogHelper.run_dialog(
             self.dialog, turn_context, self.conversation_state.create_property("DialogState"),

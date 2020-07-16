@@ -4,9 +4,10 @@ from asgiref.sync import sync_to_async
 from botbuilder.core import MessageFactory
 from botbuilder.dialogs import ComponentDialog, WaterfallDialog, \
     WaterfallStepContext, DialogTurnResult, PromptOptions, ChoicePrompt, Choice
+from botbuilder.schema import Attachment, Activity, ActivityTypes
 
 from bot.dialog.quiz import QuizDialog
-from bot.models import LearningMatrix
+from bot.models import LearningMatrix, Card
 
 
 class InitialLearningDialog(ComponentDialog):
@@ -23,6 +24,17 @@ class InitialLearningDialog(ComponentDialog):
         new_card = await self.card_to_show(user_id)
         await step_context.context.send_activity(MessageFactory.text(f"{new_card.front}"))
         step_context.values['card'] = new_card
+
+        pic_url = await self.get_image(new_card.id)
+        if pic_url:
+            att = Attachment(
+                name="architecture-resize.png",
+                content_type="image/png",
+                content_url=pic_url,
+            )
+            reply = Activity(type=ActivityTypes.message)
+            reply.attachments = [att]
+            await step_context.context.send_activity(reply)
 
         # a quiz question will be shown only if a card was already shown and learned, meaning that it's marked as easy
         if await self.get_easy_count(new_card, user_id) > 0:
@@ -67,6 +79,9 @@ class InitialLearningDialog(ComponentDialog):
         if card_obj:
             return card_obj.card
 
+    @sync_to_async
+    def get_image(self, card):
+        return Card.objects.get(pk=card).url
 
     @sync_to_async
     def get_easy_count(self, card, user):
@@ -78,7 +93,7 @@ class InitialLearningDialog(ComponentDialog):
         lmx = LearningMatrix.objects.get(user=user, card=card)
         if easiness == "Easy":
             lmx.easy_count += 1
-            repeat_after_days = spaced_repetition[lmx.easy_count]
+            repeat_after_days = spaced_repetition.get(lmx.easy_count, 19)
             lmx.show_after = datetime.now().astimezone() + timedelta(days=repeat_after_days)
         else:
             lmx.hard_count += 1
