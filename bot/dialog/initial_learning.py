@@ -40,7 +40,7 @@ class InitialLearningDialog(ComponentDialog):
             )
 
         # a quiz question will be shown only if a card was already shown and learned, meaning that it's marked as easy
-        if await self.get_easy_count(new_card, user_id) > 0:
+        if await self.get_easy_count(new_card, user_id) == 0:
             return await step_context.begin_dialog(QuizDialog.__name__, new_card)
 
         return DialogTurnResult(DialogTurnStatus.Waiting)

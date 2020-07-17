@@ -87,8 +87,6 @@ class ShownQuestion(models.Model):
     question = models.ForeignKey('Question', on_delete=models.CASCADE, related_name='question')
 
     class Meta:
-        unique_together = [['user', 'card']]
-
         indexes = [
             models.Index(fields=['user', 'card']),
         ]
