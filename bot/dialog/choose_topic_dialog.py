@@ -91,8 +91,8 @@ class ChooseTopicDialog(ComponentDialog):
                 user=user,
                 card=card,
                 deck_title=deck_title,
-                last_shown=datetime.utcfromtimestamp(0),
-                show_after=datetime.utcfromtimestamp(0),
+                last_shown=datetime.utcfromtimestamp(0).astimezone(),
+                show_after=datetime.utcfromtimestamp(0).astimezone(),
                 show_count=0,
                 easy_count=0,
                 hard_count=0

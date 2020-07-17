@@ -1,10 +1,10 @@
 from datetime import datetime, timedelta
 
 from asgiref.sync import sync_to_async
-from botbuilder.core import MessageFactory
+from botbuilder.core import MessageFactory, CardFactory
 from botbuilder.dialogs import ComponentDialog, WaterfallDialog, \
-    WaterfallStepContext, DialogTurnResult, PromptOptions, ChoicePrompt, Choice
-from botbuilder.schema import Attachment, Activity, ActivityTypes
+    WaterfallStepContext, DialogTurnResult, PromptOptions, ChoicePrompt, Choice, DialogTurnStatus
+from botbuilder.schema import Attachment, Activity, ActivityTypes, HeroCard, CardImage, CardAction, ActionTypes
 
 from bot.dialog.quiz import QuizDialog
 from bot.models import LearningMatrix, Card
@@ -22,30 +22,28 @@ class InitialLearningDialog(ComponentDialog):
     async def show_card_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
         user_id = step_context.context.activity.from_property.id
         new_card = await self.card_to_show(user_id)
-        await step_context.context.send_activity(MessageFactory.text(f"{new_card.front}"))
         step_context.values['card'] = new_card
 
         pic_url = await self.get_image(new_card.id)
         if pic_url:
-            att = Attachment(
-                name="architecture-resize.png",
-                content_type="image/png",
-                content_url=pic_url,
-            )
-            reply = Activity(type=ActivityTypes.message)
-            reply.attachments = [att]
+            reply = MessageFactory.list([])
+            reply.attachments.append(self.create_hero_card(pic_url, new_card))
             await step_context.context.send_activity(reply)
+        else:
+            # await step_context.context.send_activity(MessageFactory.text(f"{new_card.front}"))
+            await step_context.prompt(
+                ChoicePrompt.__name__,
+                PromptOptions(
+                    prompt=MessageFactory.text(f"{new_card.front}"),
+                    choices=[Choice("Show answer")],
+                ),
+            )
 
         # a quiz question will be shown only if a card was already shown and learned, meaning that it's marked as easy
         if await self.get_easy_count(new_card, user_id) > 0:
             return await step_context.begin_dialog(QuizDialog.__name__, new_card)
 
-        return await step_context.prompt(
-            ChoicePrompt.__name__,
-            PromptOptions(
-                choices=[Choice("Show answer")],
-            ),
-        )
+        return DialogTurnResult(DialogTurnStatus.Waiting)
 
     async def show_answer_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
         if step_context.result:
@@ -61,16 +59,35 @@ class InitialLearningDialog(ComponentDialog):
                 ),
             )
 
-
     async def loop_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
         easiness = step_context.result.value
         user_id = step_context.context.activity.from_property.id
         await self.mark_easy_hard(step_context.values['card'], user_id, easiness)
         if await self.card_to_show(user_id) is None:
-            await step_context.context.send_activity(MessageFactory.text("Yay! You have learned all cards in this topic."))
+            await step_context.context.send_activity(
+                MessageFactory.text("Yay! You have learned all cards in this topic."))
             return await step_context.end_dialog(True)
         else:
             return await step_context.replace_dialog(InitialLearningDialog.__name__)
+
+    def create_hero_card(self, pic_url, new_card) -> Attachment:
+        card = HeroCard(
+            title=f"{new_card.front}",
+            images=[
+                CardImage(
+                    url=f"{pic_url}"
+                )
+            ],
+            buttons=[
+                CardAction(
+                    type=ActionTypes.message_back,
+                    title="Show Answer",
+                    text="Show Answer",
+                    value="Action:Show answer",
+                )
+            ],
+        )
+        return CardFactory.hero_card(card)
 
     @sync_to_async
     def card_to_show(self, user):
@@ -105,4 +122,3 @@ class InitialLearningDialog(ComponentDialog):
         lmx.last_shown = datetime.now().astimezone()
         lmx.show_count += 1
         lmx.save()
-

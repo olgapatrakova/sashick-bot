@@ -37,7 +37,7 @@ class DialogBot(ActivityHandler):
 
     async def on_turn(self, turn_context: TurnContext):
         await super().on_turn(turn_context)
-
+        await self.get_or_create_user(turn_context.activity.from_property.id)
         # Save any state changes that might have ocurred during the turn.
         await self.conversation_state.save_changes(turn_context)
         await self.user_state.save_changes(turn_context)

@@ -15,14 +15,16 @@ from botbuilder.schema import Activity, ActivityTypes
 
 from bot.activity_handler import DialogBot
 from bot.dialog.main_dialog import MainDialog
+from dotenv import load_dotenv
+load_dotenv(verbose=True)
 
 
 class DefaultConfig:
     """ Bot Configuration """
 
     PORT = 3978
-    APP_ID = os.environ.get("MicrosoftAppId", "")
-    APP_PASSWORD = os.environ.get("MicrosoftAppPassword", "")
+    APP_ID = os.getenv("APP_ID")
+    APP_PASSWORD = os.getenv("APP_PASSWORD")
 
 
 CONFIG = DefaultConfig()
