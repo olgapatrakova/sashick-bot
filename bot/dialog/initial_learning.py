@@ -24,26 +24,26 @@ class InitialLearningDialog(ComponentDialog):
         new_card = await self.card_to_show(user_id)
         step_context.values['card'] = new_card
 
-        pic_url = await self.get_image(new_card.id)
-        if pic_url:
-            reply = MessageFactory.list([])
-            reply.attachments.append(self.create_hero_card(pic_url, new_card))
-            await step_context.context.send_activity(reply)
-        else:
-            # await step_context.context.send_activity(MessageFactory.text(f"{new_card.front}"))
-            await step_context.prompt(
-                ChoicePrompt.__name__,
-                PromptOptions(
-                    prompt=MessageFactory.text(f"{new_card.front}"),
-                    choices=[Choice("Show answer")],
-                ),
-            )
-
         # a quiz question will be shown only if a card was already shown and learned, meaning that it's marked as easy
         if await self.get_easy_count(new_card, user_id) == 0:
             return await step_context.begin_dialog(QuizDialog.__name__, new_card)
+        else:
+            pic_url = await self.get_image(new_card.id)
+            if pic_url:
+                reply = MessageFactory.list([])
+                reply.attachments.append(self.create_hero_card(pic_url, new_card))
+                await step_context.context.send_activity(reply)
+            else:
+                # await step_context.context.send_activity(MessageFactory.text(f"{new_card.front}"))
+                await step_context.prompt(
+                    ChoicePrompt.__name__,
+                    PromptOptions(
+                        prompt=MessageFactory.text(f"{new_card.front}"),
+                        choices=[Choice("Show answer")],
+                    ),
+                )
 
-        return DialogTurnResult(DialogTurnStatus.Waiting)
+            return DialogTurnResult(DialogTurnStatus.Waiting)
 
     async def show_answer_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
         if step_context.result:
