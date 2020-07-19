@@ -135,8 +135,9 @@ class QuizDialog(CancelAndHelpDialog):
 
     @sync_to_async
     def check_answer(self, user_answer, question):
-        return question.answers.filter(text__iexact=user_answer).exists() \
-               and question.answers.filter(text__iexact=user_answer).first().correct
+        correct_answers = question.answers.filter(correct=True)
+        is_correct = correct_answers.filter(text__iexact=user_answer).exists()
+        return is_correct
 
     @sync_to_async
     def has_card_question(self, card):

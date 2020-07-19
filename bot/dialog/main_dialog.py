@@ -22,27 +22,3 @@ class MainDialog(ComponentDialog):
         self.add_dialog(QuizDialog(QuizDialog.__name__))
         # launch the first dialog
         self.initial_dialog_id = ChooseTopicDialog.__name__
-
-    # async def choose_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
-    #
-    #     # number = randrange(0, 11)
-    #
-    #     # step_context.values["number"] = number
-    #     return await step_context.begin_dialog(ChooseTopicDialog.__name__)
-
-    # async def acknoweledge(self, step_context: WaterfallStepContext) -> DialogTurnResult:
-    #
-    #     await step_context.context.send_activity(MessageFactory.text(f"Congratulations! You won. The number was {step_context.values['number']}"))
-    #
-    #     return await step_context.prompt(ConfirmPrompt.__name__, PromptOptions(prompt=MessageFactory.text("Would you like to play again?")))
-    #
-    # async def play_again(self, step_context: WaterfallStepContext) -> DialogTurnResult:
-    #     if step_context.result:
-    #         return await step_context.replace_dialog(MainDialog.__name__)
-    #     else:
-    #         await step_context.context.send_activity(MessageFactory.text("Thank you for playing!!!"))
-    #         return await step_context.end_dialog(True)
-    #
-    # @staticmethod
-    # def number_validator(prompt_context: PromptValidatorContext) -> bool:
-    #     return prompt_context.recognized.succeeded and 0 <= prompt_context.recognized.value <= 10

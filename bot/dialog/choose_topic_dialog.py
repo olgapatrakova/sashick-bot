@@ -14,7 +14,7 @@ from logging import getLogger
 logger = getLogger(__name__)
 
 
-class ChooseTopicDialog(CancelAndHelpDialog):
+class ChooseTopicDialog(ComponentDialog):
     def __init__(self, dialog_id: str = None):
         super(ChooseTopicDialog, self).__init__(dialog_id or ChooseTopicDialog.__name__)
 
