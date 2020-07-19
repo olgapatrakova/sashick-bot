@@ -122,7 +122,10 @@ class QuizDialog(ComponentDialog):
 
     @sync_to_async
     def correct_answer(self, question):
-        return question.answers.first()
+        if question.answers.count() == 1:
+            return question.answers.first()
+        else:
+            return question.answers.filter(correct=True).first()
 
     @sync_to_async
     def correct_answer_is_different(self, question):
