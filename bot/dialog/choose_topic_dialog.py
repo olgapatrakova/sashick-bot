@@ -6,6 +6,7 @@ from botbuilder.dialogs import ComponentDialog, WaterfallDialog, \
     WaterfallStepContext, DialogTurnResult, PromptOptions, ChoicePrompt, Choice, ConfirmPrompt
 from django.db.models import Subquery
 
+from bot.dialog.cancel_and_help_dialog import CancelAndHelpDialog
 from bot.dialog.initial_learning import InitialLearningDialog
 from bot.models import Deck, Card, LearningMatrix, User
 from logging import getLogger
@@ -13,7 +14,7 @@ from logging import getLogger
 logger = getLogger(__name__)
 
 
-class ChooseTopicDialog(ComponentDialog):
+class ChooseTopicDialog(CancelAndHelpDialog):
     def __init__(self, dialog_id: str = None):
         super(ChooseTopicDialog, self).__init__(dialog_id or ChooseTopicDialog.__name__)
 

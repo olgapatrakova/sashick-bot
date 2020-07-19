@@ -5,10 +5,11 @@ from botbuilder.dialogs import ComponentDialog, WaterfallDialog, \
 from botbuilder.schema import Activity, ActivityTypes, Attachment, HeroCard, CardImage, CardAction, ActionTypes
 from django.db.models import Subquery
 
+from bot.dialog.cancel_and_help_dialog import CancelAndHelpDialog
 from bot.models import ShownQuestion, Question, User, Card
 
 
-class QuizDialog(ComponentDialog):
+class QuizDialog(CancelAndHelpDialog):
     def __init__(self, dialog_id: str = None):
         super(QuizDialog, self).__init__(dialog_id or QuizDialog.__name__)
 

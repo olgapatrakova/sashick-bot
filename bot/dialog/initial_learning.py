@@ -4,13 +4,14 @@ from asgiref.sync import sync_to_async
 from botbuilder.core import MessageFactory, CardFactory
 from botbuilder.dialogs import ComponentDialog, WaterfallDialog, \
     WaterfallStepContext, DialogTurnResult, PromptOptions, ChoicePrompt, Choice, DialogTurnStatus
-from botbuilder.schema import Attachment, Activity, ActivityTypes, HeroCard, CardImage, CardAction, ActionTypes
+from botbuilder.schema import Attachment, HeroCard, CardImage, CardAction, ActionTypes
 
+from bot.dialog.cancel_and_help_dialog import CancelAndHelpDialog
 from bot.dialog.quiz import QuizDialog
 from bot.models import LearningMatrix, Card
 
 
-class InitialLearningDialog(ComponentDialog):
+class InitialLearningDialog(CancelAndHelpDialog):
     def __init__(self, dialog_id: str = None):
         super(InitialLearningDialog, self).__init__(dialog_id or InitialLearningDialog.__name__)
 
