@@ -3,11 +3,11 @@ from datetime import datetime, timedelta
 
 from asgiref.sync import sync_to_async
 from botbuilder.core import MessageFactory, CardFactory
-from botbuilder.dialogs import ComponentDialog, WaterfallDialog, \
+from botbuilder.dialogs import WaterfallDialog, \
     WaterfallStepContext, DialogTurnResult, PromptOptions, ChoicePrompt, Choice, DialogTurnStatus
 from botbuilder.schema import Attachment, HeroCard, CardImage, CardAction, ActionTypes
 
-from bot.state import CONVERSATION_STATE, USER_STATE
+from bot.state import CONVERSATION_STATE
 
 from bot.dialog.cancel_and_help_dialog import CancelAndHelpDialog
 from bot.dialog.quiz import QuizDialog

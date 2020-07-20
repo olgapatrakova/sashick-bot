@@ -3,7 +3,7 @@ from botbuilder.dialogs import (
     ComponentDialog,
     DialogContext,
     DialogTurnResult,
-    DialogTurnStatus, WaterfallDialog, WaterfallStepContext, ChoicePrompt,
+    DialogTurnStatus, WaterfallDialog, WaterfallStepContext, ChoicePrompt, ConfirmPrompt, PromptOptions
 )
 from botbuilder.schema import ActivityTypes, InputHints, HeroCard, CardAction, ActionTypes, Activity
 from botbuilder.core import MessageFactory, CardFactory
@@ -19,6 +19,9 @@ class CancelAndHelpDialog(ComponentDialog):
                                         [self.show_help, self.process_interruption_choice]))
         self.add_dialog(ChoicePrompt('InterruptionChoice'))
         self.logger = logging.getLogger(self.__class__.__qualname__)
+        self.add_dialog(WaterfallDialog('DropDialog',
+                                        [self.confirmation_step, self.drop_step]))
+        self.add_dialog(ConfirmPrompt(ConfirmPrompt.__name__))
 
     async def on_continue_dialog(self, inner_dc: DialogContext) -> DialogTurnResult:
         result = await self.interrupt(inner_dc)
@@ -50,39 +53,56 @@ class CancelAndHelpDialog(ComponentDialog):
         user_id = step_context.context.activity.from_property.id
         if step_context.result == "Drop the topic":
             await self.drop_topic(user_id, current_card)
-            await step_context.context.send_activity(MessageFactory.text(f"You have just dropped the topic {current_deck}"))
+            await step_context.context.send_activity(
+                MessageFactory.text(f"You have just dropped the topic {current_deck}"))
             self.logger.info("end current dialog")
             return await step_context.cancel_all_dialogs()
         if step_context.result == "<< Back to topic":
             await step_context.end_dialog(True)
             return DialogTurnResult(DialogTurnStatus.Waiting)
 
-    async def interrupt(self, dialog_ctx: DialogContext) -> DialogTurnResult:
-        if dialog_ctx.context.activity.type == ActivityTypes.message:
-            text = dialog_ctx.context.activity.text.lower()
+    async def interrupt(self, step_context: WaterfallStepContext) -> DialogTurnResult:
+        if step_context.context.activity.type == ActivityTypes.message:
+            text = step_context.context.activity.text.lower()
 
             if text in ("help", "?"):
                 self.logger.info("interrupt help")
 
-                #inner_dc.context.turn_state['ConversationState']
+                # inner_dc.context.turn_state['ConversationState']
                 current_card = None
                 if hasattr(self, 'current_card'):
-                    current_card = await self.current_card.get(dialog_ctx.context, None)
+                    current_card = await self.current_card.get(step_context.context, None)
                     self.logger.info('current card %s', current_card)
 
-                self.logger.info('replace current dialog with %s','InterruptionMenuDialog')
-                return await dialog_ctx.begin_dialog('InterruptionMenuDialog', {'current_card': current_card})
+                self.logger.info('replace current dialog with %s', 'InterruptionMenuDialog')
+                return await step_context.begin_dialog('InterruptionMenuDialog', {'current_card': current_card})
 
-            elif text in ("cancel", "quit"):
-                self.logger.info("interrupt cancel")
+            elif text in ("cancel", "quit", "drop"):
+                current_card = None
+                if hasattr(self, 'current_card'):
+                    current_card = await self.current_card.get(step_context.context, None)
+                    self.logger.info('current card %s', current_card)
+                return await step_context.begin_dialog('DropDialog', {'current_card': current_card})
 
-                cancel_message_text = "Cancelling"
-                cancel_message = MessageFactory.text(
-                    cancel_message_text, cancel_message_text, InputHints.ignoring_input
-                )
-                await dialog_ctx.context.send_activity(cancel_message)
-                self.logger.info('end current dialog')
-                return await dialog_ctx.end_dialog(None)
+    async def confirmation_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
+        current_card = step_context.options['current_card']
+        current_deck = await self.find_deck(current_card)
+        step_context.values['card'] = current_card
+        step_context.values['deck'] = current_deck
+        return await step_context.prompt(
+            ConfirmPrompt.__name__,
+            PromptOptions(prompt=MessageFactory.text(f"You are going to drop {current_deck} topic. Are you sure?")),
+        )
+
+    async def drop_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
+        if step_context.result:
+            user_id = step_context.context.activity.from_property.id
+            await self.drop_topic(user_id, step_context.values['card'])
+            await step_context.context.send_activity(
+                MessageFactory.text(f"You have just dropped the topic {step_context.values['deck']}"))
+            self.logger.info("end current dialog")
+            return await step_context.cancel_all_dialogs()
+        return await step_context.next(None)
 
     def interruption_menu(self) -> Activity:
         reply = MessageFactory.list([])
