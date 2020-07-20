@@ -60,6 +60,17 @@ class CancelAndHelpDialog(ComponentDialog):
         if step_context.result == "<< Back to topic":
             await step_context.end_dialog(True)
             return DialogTurnResult(DialogTurnStatus.Waiting)
+        if step_context.result == "My stats":
+            await self.get_statistics(user_id, current_deck)
+            await step_context.context.send_activity(
+                MessageFactory.text(f"Topic in progress: {current_deck}\n"
+                                    f"Started learning: Feb 5th 2020\n"
+                                    f"Cards to learn: 5\n"
+                                    f"Already learned: 5%\n"
+                                    f"Hard cards: 1\n"
+                                    f"Correct answers: 90%"))
+            return await step_context.replace_dialog('InterruptionMenuDialog', {'current_card': current_card})
+
 
     async def interrupt(self, step_context: WaterfallStepContext) -> DialogTurnResult:
         if step_context.context.activity.type == ActivityTypes.message:
@@ -77,7 +88,7 @@ class CancelAndHelpDialog(ComponentDialog):
                 self.logger.info('replace current dialog with %s', 'InterruptionMenuDialog')
                 return await step_context.begin_dialog('InterruptionMenuDialog', {'current_card': current_card})
 
-            elif text in ("cancel", "quit", "drop"):
+            elif text in ("drop"):
                 current_card = None
                 if hasattr(self, 'current_card'):
                     current_card = await self.current_card.get(step_context.context, None)
@@ -118,6 +129,13 @@ class CancelAndHelpDialog(ComponentDialog):
                 ),
                 CardAction(
                     type=ActionTypes.message_back,
+                    title="My stats",
+                    text="My stats",
+                    display_text="My stats",
+                    value="My stats",
+                ),
+                CardAction(
+                    type=ActionTypes.message_back,
                     title="<< Back to topic",
                     text="<< Back to topic",
                     display_text="<< Back to topic",
@@ -128,6 +146,11 @@ class CancelAndHelpDialog(ComponentDialog):
         reply.attachments.append(CardFactory.hero_card(card))
 
         return reply
+
+    @sync_to_async
+    def get_statistics(self, user, deck):
+        lmx = LearningMatrix.objects.filter(user_id=user, deck_title=deck)
+        return lmx
 
     @sync_to_async
     def find_deck(self, card):

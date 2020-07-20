@@ -35,7 +35,7 @@ class ChooseTopicDialog(ComponentDialog):
             return await step_context.prompt(
                 ChoicePrompt.__name__,
                 PromptOptions(
-                    prompt=MessageFactory.text("Please choose one topic to learn."),
+                    prompt=MessageFactory.text("Please choose a topic to learn."),
                     choices=[Choice(x.title, synonyms=[str(x.id)]) for x in decks],
                 ),
             )
