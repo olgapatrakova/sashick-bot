@@ -5,11 +5,12 @@ from botbuilder.dialogs import (
     DialogTurnResult,
     DialogTurnStatus, WaterfallDialog, WaterfallStepContext, ChoicePrompt,
 )
-from botbuilder.schema import ActivityTypes, InputHints, Attachment, HeroCard, CardAction, ActionTypes, Activity
+from botbuilder.schema import ActivityTypes, InputHints, HeroCard, CardAction, ActionTypes, Activity
 from botbuilder.core import MessageFactory, CardFactory
 
 from bot.models import Card, LearningMatrix
 import logging
+
 
 class CancelAndHelpDialog(ComponentDialog):
     def __init__(self, dialog_id: str):
@@ -45,23 +46,16 @@ class CancelAndHelpDialog(ComponentDialog):
     async def process_interruption_choice(self, step_context: WaterfallStepContext) -> DialogTurnResult:
         self.logger.info("process_interruption_choice")
         current_card = step_context.options['current_card']
+        current_deck = await self.find_deck(current_card)
         user_id = step_context.context.activity.from_property.id
         if step_context.result == "Drop the topic":
             await self.drop_topic(user_id, current_card)
-
-        self.logger.info("end current dialog")
-        return await step_context.end_dialog(None)
-
-
-    @sync_to_async
-    def drop_topic(self, user_id: str, current_card: Card) -> bool:
-        self.logger.info("drop_topic")
-        if not current_card: return
-        if not current_card.deck: return
-        topic = current_card.deck.title
-        deleted, rows_count = LearningMatrix.objects.filter(user_id=user_id, deck_title=topic).delete()
-        self.logger.info('deleted %d learning matrix cards for user=%s topic=%s', deleted, user_id, topic)
-        return deleted
+            await step_context.context.send_activity(MessageFactory.text(f"You have just dropped the topic {current_deck}"))
+            self.logger.info("end current dialog")
+            return await step_context.cancel_all_dialogs()
+        if step_context.result == "<< Back to topic":
+            await step_context.end_dialog(True)
+            return DialogTurnResult(DialogTurnStatus.Waiting)
 
     async def interrupt(self, dialog_ctx: DialogContext) -> DialogTurnResult:
         if dialog_ctx.context.activity.type == ActivityTypes.message:
@@ -99,12 +93,14 @@ class CancelAndHelpDialog(ComponentDialog):
                     type=ActionTypes.message_back,
                     title="Drop the topic",
                     text="Drop the topic",
-                    value="Action:Drop the topic",
+                    display_text="Drop the topic",
+                    value="Drop the topic",
                 ),
                 CardAction(
                     type=ActionTypes.message_back,
                     title="<< Back to topic",
                     text="<< Back to topic",
+                    display_text="<< Back to topic",
                     value="Action:<< Back to topic",
                 ),
             ],
@@ -112,3 +108,17 @@ class CancelAndHelpDialog(ComponentDialog):
         reply.attachments.append(CardFactory.hero_card(card))
 
         return reply
+
+    @sync_to_async
+    def find_deck(self, card):
+        return card.deck.title
+
+    @sync_to_async
+    def drop_topic(self, user_id: str, current_card: Card) -> bool:
+        self.logger.info("drop_topic")
+        if not current_card: return
+        if not current_card.deck: return
+        topic = current_card.deck.title
+        deleted, rows_count = LearningMatrix.objects.filter(user_id=user_id, deck_title=topic).delete()
+        self.logger.info('deleted %d learning matrix cards for user=%s topic=%s', deleted, user_id, topic)
+        return deleted
