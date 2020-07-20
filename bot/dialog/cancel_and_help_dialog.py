@@ -16,7 +16,7 @@ class CancelAndHelpDialog(ComponentDialog):
     def __init__(self, dialog_id: str):
         super(CancelAndHelpDialog, self).__init__(dialog_id)
         self.add_dialog(WaterfallDialog('InterruptionMenuDialog',
-                                        [self.show_help, self.process_interruption_choice]))
+                                        [self.show_help, self.process_interruption_choice, self.drop_step]))
         self.add_dialog(ChoicePrompt('InterruptionChoice'))
         self.logger = logging.getLogger(self.__class__.__qualname__)
         self.add_dialog(WaterfallDialog('DropDialog',
@@ -52,11 +52,13 @@ class CancelAndHelpDialog(ComponentDialog):
         current_deck = await self.find_deck(current_card)
         user_id = step_context.context.activity.from_property.id
         if step_context.result == "Drop the topic":
-            await self.drop_topic(user_id, current_card)
-            await step_context.context.send_activity(
-                MessageFactory.text(f"You have just dropped the topic {current_deck}"))
-            self.logger.info("end current dialog")
-            return await step_context.cancel_all_dialogs()
+            return await self.confirmation_step(step_context)
+            # if step_context.result:
+            #     await self.drop_topic(user_id, current_card)
+            #     await step_context.context.send_activity(
+            #         MessageFactory.text(f"You have just dropped the topic {current_deck}"))
+            #     self.logger.info("end current dialog")
+            #     return await step_context.cancel_all_dialogs()
         if step_context.result == "<< Back to topic":
             await step_context.end_dialog(True)
             return DialogTurnResult(DialogTurnStatus.Waiting)
