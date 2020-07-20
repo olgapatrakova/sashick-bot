@@ -2,6 +2,15 @@ import os
 import sys
 import traceback
 from datetime import datetime
+from botbuilder.schema import Activity, ActivityTypes
+
+from bot.activity_handler import DialogBot
+from bot.dialog.main_dialog import MainDialog
+from dotenv import load_dotenv
+
+from bot.state import CONVERSATION_STATE, USER_STATE
+
+load_dotenv(verbose=True)
 
 from botbuilder.core import (
     BotFrameworkAdapter,
@@ -11,13 +20,6 @@ from botbuilder.core import (
     TurnContext,
     UserState,
 )
-from botbuilder.schema import Activity, ActivityTypes
-
-from bot.activity_handler import DialogBot
-from bot.dialog.main_dialog import MainDialog
-from dotenv import load_dotenv
-load_dotenv(verbose=True)
-
 
 class DefaultConfig:
     """ Bot Configuration """
@@ -69,10 +71,7 @@ async def on_error(context: TurnContext, error: Exception):
 # In this case, we want an unbound method, so MethodType is not needed.
 ADAPTER.on_turn_error = on_error
 
-# Create MemoryStorage, UserState and ConversationState
-MEMORY = MemoryStorage()
-CONVERSATION_STATE = ConversationState(MEMORY)
-USER_STATE = UserState(MEMORY)
+
 
 # create main dialog and bot
 DIALOG = MainDialog(CONVERSATION_STATE, USER_STATE)

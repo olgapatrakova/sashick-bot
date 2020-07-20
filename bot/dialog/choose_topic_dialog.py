@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime
 
 from asgiref.sync import sync_to_async
@@ -19,15 +20,18 @@ class ChooseTopicDialog(ComponentDialog):
         super(ChooseTopicDialog, self).__init__(dialog_id or ChooseTopicDialog.__name__)
 
         self.add_dialog(WaterfallDialog(WaterfallDialog.__name__,
-                                        [self.give_choice_step, self.confirm_choice_step, self.choose_again_step, ]))
+                                        [self.give_choice_step, self.confirm_choice_step, self.choose_again_step, self.loop]))
         self.add_dialog(ChoicePrompt(ChoicePrompt.__name__))
         self.add_dialog(ConfirmPrompt(ConfirmPrompt.__name__))
         self.initial_dialog_id = WaterfallDialog.__name__
+        self.logger = logging.getLogger(self.__class__.__qualname__)
 
     async def give_choice_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
+        self.logger.info('give_choice_step')
         user_id = step_context.context.activity.from_property.id
         decks = await self.not_learned_decks(user_id)
         if len(decks) > 0:
+            self.logger.info('%d not_learned_decks', len(decks))
             return await step_context.prompt(
                 ChoicePrompt.__name__,
                 PromptOptions(
@@ -37,11 +41,13 @@ class ChooseTopicDialog(ComponentDialog):
             )
         else:
             await step_context.context.send_activity(MessageFactory.text("Sorry, no new topics for you to learn"))
+            self.logger.info('end current dialog')
             return await step_context.end_dialog(True)
 
     async def confirm_choice_step(
             self, step_context: WaterfallStepContext
     ) -> DialogTurnResult:
+        self.logger.info('confirm_choice_step')
         step_context.values['deck'] = step_context.result
         deck = await self.deck_id(step_context.result.value)
         step_context.values['deck_id'] = deck
@@ -54,15 +60,21 @@ class ChooseTopicDialog(ComponentDialog):
         )
 
     async def choose_again_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
+        self.logger.info('choose_again_step')
         if step_context.result:
             cards_list = await self.cards(step_context.values['deck_id'])
             user_id = step_context.context.activity.from_property.id
             deck_title = step_context.values['deck'].value
             # add all cards of a chosen deck to learning matrix
             await self.add_cards_to_learning_matrix(cards_list, user_id, deck_title)
-            return await step_context.replace_dialog(InitialLearningDialog.__name__)
-        else:
-            return await step_context.replace_dialog(ChooseTopicDialog.__name__)
+            self.logger.info('begin dialog %s', InitialLearningDialog.__name__)
+            return await step_context.begin_dialog(InitialLearningDialog.__name__)
+        return await step_context.next(None)
+
+    async def loop(self, step_context: WaterfallStepContext) -> DialogTurnResult:
+        self.logger.info('choose_again_step')
+        self.logger.info('replace current dialog with %s', ChooseTopicDialog.__name__)
+        return await step_context.replace_dialog(ChooseTopicDialog.__name__)
 
     @sync_to_async
     def not_learned_decks(self, user_id):
@@ -70,6 +82,7 @@ class ChooseTopicDialog(ComponentDialog):
         deck_in_progress = LearningMatrix.objects.filter(user=user_id).values("deck_title").distinct()
         # find all decks except those that are in progress
         not_yet_chosen_decks = Deck.objects.exclude(title__in=Subquery(deck_in_progress))
+        self.logger.info('%d not_learned_decks', len(not_yet_chosen_decks))
         return list(not_yet_chosen_decks)
 
     @sync_to_async
@@ -98,3 +111,4 @@ class ChooseTopicDialog(ComponentDialog):
                 easy_count=0,
                 hard_count=0
             ).save()
+        self.logger.info('added %d cards to learning matrix for user=%s topic=%s', len(cards_list),user_id, deck_title)

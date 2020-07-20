@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timedelta
 
 from asgiref.sync import sync_to_async
@@ -5,6 +6,8 @@ from botbuilder.core import MessageFactory, CardFactory
 from botbuilder.dialogs import ComponentDialog, WaterfallDialog, \
     WaterfallStepContext, DialogTurnResult, PromptOptions, ChoicePrompt, Choice, DialogTurnStatus
 from botbuilder.schema import Attachment, HeroCard, CardImage, CardAction, ActionTypes
+
+from bot.state import CONVERSATION_STATE, USER_STATE
 
 from bot.dialog.cancel_and_help_dialog import CancelAndHelpDialog
 from bot.dialog.quiz import QuizDialog
@@ -19,14 +22,23 @@ class InitialLearningDialog(CancelAndHelpDialog):
                                         [self.show_card_step, self.show_answer_step, self.loop_step]))
         self.add_dialog(ChoicePrompt(ChoicePrompt.__name__))
         self.initial_dialog_id = WaterfallDialog.__name__
+        self.current_card = CONVERSATION_STATE.create_property("CurrentCard")
+        self.logger = logging.getLogger(self.__class__.__qualname__)
 
     async def show_card_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
+        self.logger.info('show_card_step')
         user_id = step_context.context.activity.from_property.id
         new_card = await self.card_to_show(user_id)
+        if new_card is None:
+            self.logger.info('no new card to show, replace current dialog with %s', 'ChooseTopicDialog')
+            return await step_context.replace_dialog('ChooseTopicDialog')
+        await self.current_card.set(step_context.context, new_card)
+        await CONVERSATION_STATE.save_changes(step_context.context)
         step_context.values['card'] = new_card
 
         # a quiz question will be shown only if a card was already shown and learned, meaning that it's marked as easy
         if await self.get_easy_count(new_card, user_id) == 0:
+            self.logger.info('begin dialog %s',QuizDialog.__name__)
             return await step_context.begin_dialog(QuizDialog.__name__, new_card)
         else:
             pic_url = await self.get_image(new_card.id)
@@ -47,6 +59,7 @@ class InitialLearningDialog(CancelAndHelpDialog):
             return DialogTurnResult(DialogTurnStatus.Waiting)
 
     async def show_answer_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
+        self.logger.info('show_answer_step')
         if step_context.result:
             card = step_context.values['card']
             user_id = step_context.context.activity.from_property.id
@@ -59,17 +72,23 @@ class InitialLearningDialog(CancelAndHelpDialog):
                     choices=[Choice("Easy"), Choice("Hard")],
                 ),
             )
+        return await step_context.next(False)
 
     async def loop_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
-        easiness = step_context.result.value
+        self.logger.info('loop_step')
         user_id = step_context.context.activity.from_property.id
-        await self.mark_easy_hard(step_context.values['card'], user_id, easiness)
-        if await self.card_to_show(user_id) is None:
-            await step_context.context.send_activity(
-                MessageFactory.text("Yay! You have learned all cards in this topic."))
-            return await step_context.end_dialog(True)
-        else:
-            return await step_context.replace_dialog(InitialLearningDialog.__name__)
+        if step_context.result:
+            easiness = step_context.result.value
+
+            await self.mark_easy_hard(step_context.values['card'], user_id, easiness)
+            if await self.card_to_show(user_id) is None:
+                await step_context.context.send_activity(
+                    MessageFactory.text("Yay! You have learned all cards in this topic."))
+                self.logger.info('end current dialog')
+                return await step_context.end_dialog(True)
+
+        self.logger.info('replace current dialog with %s',InitialLearningDialog.__name__)
+        return await step_context.replace_dialog(InitialLearningDialog.__name__)
 
     def create_hero_card(self, pic_url, new_card) -> Attachment:
         card = HeroCard(
