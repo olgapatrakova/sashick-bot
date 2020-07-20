@@ -5,7 +5,8 @@ from botbuilder.dialogs import (
     DialogTurnResult,
     DialogTurnStatus, WaterfallDialog, WaterfallStepContext, ChoicePrompt, ConfirmPrompt, PromptOptions
 )
-from botbuilder.schema import ActivityTypes, InputHints, HeroCard, CardAction, ActionTypes, Activity
+from botbuilder.schema import ActivityTypes, InputHints, HeroCard, CardAction, ActionTypes, Activity, Attachment, \
+    ThumbnailCard, CardImage
 from botbuilder.core import MessageFactory, CardFactory
 
 from bot.models import Card, LearningMatrix
@@ -34,8 +35,9 @@ class CancelAndHelpDialog(ComponentDialog):
         self.logger.info("show_help")
         help_message_text = "Here is what you can do with topics:\n" \
                             "1. Drop the topic means you don't want to learn this topic anymore.\n" \
-                            "2. Switch the topic means you want to start learning a new topic and keep progress of the current topic as well.\n" \
-                            "3. Back to topic means you want to proceed learning the current topic."
+                            "2. My stats will help you learn about your progress. \n" \
+                            "3. Add a topic will help you learn several topics simultaneously.\n" \
+                            "4. Back to topic means you want to proceed learning the current topic."
 
         help_message = MessageFactory.text(
             help_message_text, help_message_text, InputHints.expecting_input
@@ -53,26 +55,38 @@ class CancelAndHelpDialog(ComponentDialog):
         user_id = step_context.context.activity.from_property.id
         if step_context.result == "Drop the topic":
             return await self.confirmation_step(step_context)
-            # if step_context.result:
-            #     await self.drop_topic(user_id, current_card)
-            #     await step_context.context.send_activity(
-            #         MessageFactory.text(f"You have just dropped the topic {current_deck}"))
-            #     self.logger.info("end current dialog")
-            #     return await step_context.cancel_all_dialogs()
         if step_context.result == "<< Back to topic":
             await step_context.end_dialog(True)
             return DialogTurnResult(DialogTurnStatus.Waiting)
+        if step_context.result == "Add a topic":
+            await step_context.end_dialog(True)
+            return DialogTurnResult(DialogTurnStatus.Waiting)
+
         if step_context.result == "My stats":
             await self.get_statistics(user_id, current_deck)
-            await step_context.context.send_activity(
-                MessageFactory.text(f"Topic in progress: {current_deck}\n"
-                                    f"Started learning: Feb 5th 2020\n"
-                                    f"Cards to learn: 5\n"
-                                    f"Already learned: 5%\n"
-                                    f"Hard cards: 1\n"
-                                    f"Correct answers: 90%"))
+
+            reply = MessageFactory.list([])
+            reply.attachments.append(self.create_thumbnail_card(current_deck))
+            await step_context.context.send_activity(reply)
+
             return await step_context.replace_dialog('InterruptionMenuDialog', {'current_card': current_card})
 
+    def create_thumbnail_card(self, current_deck) -> Attachment:
+        card = ThumbnailCard(
+            title="Your statistics",
+            subtitle=f"Topic in progress: {current_deck}",
+            text=f"Started learning: Feb 5th 2020\n"
+                 "Cards to learn: 5\n"
+                 "Already learned: 5%\n"
+                 "Hard cards: 1\n"
+                 "Correct answers: 90%",
+            images=[
+                CardImage(
+                    url="https://i.imgur.com/PpmuUr8.png"
+                )
+            ],
+        )
+        return CardFactory.thumbnail_card(card)
 
     async def interrupt(self, step_context: WaterfallStepContext) -> DialogTurnResult:
         if step_context.context.activity.type == ActivityTypes.message:
