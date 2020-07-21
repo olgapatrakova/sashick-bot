@@ -19,6 +19,7 @@ class Card(models.Model):
     front = models.TextField()
     back = models.TextField()
     url = models.URLField(blank=True)
+    sound_url = models.URLField(blank=True)
     def __str__(self):
         return self.front
 
@@ -27,6 +28,7 @@ class Question(models.Model):
     card = models.ForeignKey('Card', on_delete=models.CASCADE, related_name='questions')
     text = models.TextField()
     url = models.URLField(blank=True)
+    sound_url = models.URLField(blank=True)
     BUTTON = 'BTN'
     TEXT = 'TXT'
     TYPE_CHOICES = [

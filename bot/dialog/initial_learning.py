@@ -5,7 +5,8 @@ from asgiref.sync import sync_to_async
 from botbuilder.core import MessageFactory, CardFactory
 from botbuilder.dialogs import WaterfallDialog, \
     WaterfallStepContext, DialogTurnResult, PromptOptions, ChoicePrompt, Choice, DialogTurnStatus
-from botbuilder.schema import Attachment, HeroCard, CardImage, CardAction, ActionTypes
+from botbuilder.schema import Attachment, HeroCard, CardImage, CardAction, ActionTypes, AudioCard, MediaUrl, \
+    ThumbnailUrl
 
 from bot.state import CONVERSATION_STATE
 
@@ -37,12 +38,17 @@ class InitialLearningDialog(CancelAndHelpDialog):
         step_context.values['card'] = new_card
 
         # a quiz question will be shown only if a card was already shown and learned, meaning that it's marked as easy
-        if await self.get_easy_count(new_card, user_id) == 0:
+        if await self.get_easy_count(new_card, user_id) > 0:
             self.logger.info('begin dialog %s',QuizDialog.__name__)
             return await step_context.begin_dialog(QuizDialog.__name__, new_card)
         else:
             pic_url = await self.get_image(new_card.id)
-            if pic_url:
+            sound_url = await self.get_sound(new_card.id)
+            if sound_url and pic_url:
+                reply = MessageFactory.list([])
+                reply.attachments.append(self.create_audio_card(pic_url, sound_url, new_card))
+                await step_context.context.send_activity(reply)
+            elif pic_url:
                 reply = MessageFactory.list([])
                 reply.attachments.append(self.create_hero_card(pic_url, new_card))
                 await step_context.context.send_activity(reply)
@@ -109,12 +115,34 @@ class InitialLearningDialog(CancelAndHelpDialog):
         )
         return CardFactory.hero_card(card)
 
+    def create_audio_card(self, pic_url, sound_url, new_card) -> Attachment:
+        card = AudioCard(
+            media=[MediaUrl(url=f"{sound_url}")],
+            title=f"{new_card.front}",
+            image=ThumbnailUrl(
+                url=f"{pic_url}"
+            ),
+            buttons=[
+                CardAction(
+                    type=ActionTypes.message_back,
+                    title="Show Answer",
+                    text="Show Answer",
+                    value="Action:Show answer",
+                )
+            ],
+        )
+        return CardFactory.audio_card(card)
+
     @sync_to_async
     def card_to_show(self, user):
         lmx = LearningMatrix.objects.filter(user=user, show_after__lte=datetime.now().astimezone())
         card_obj = lmx.order_by('last_shown', '-hard_count').first()
         if card_obj:
             return card_obj.card
+
+    @sync_to_async
+    def get_sound(self, card):
+        return Card.objects.get(pk=card).sound_url
 
     @sync_to_async
     def get_image(self, card):
