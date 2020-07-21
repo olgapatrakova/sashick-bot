@@ -37,7 +37,7 @@ class InitialLearningDialog(CancelAndHelpDialog):
         step_context.values['card'] = new_card
 
         # a quiz question will be shown only if a card was already shown and learned, meaning that it's marked as easy
-        if await self.get_easy_count(new_card, user_id) > 0:
+        if await self.get_easy_count(new_card, user_id) == 0:
             self.logger.info('begin dialog %s',QuizDialog.__name__)
             return await step_context.begin_dialog(QuizDialog.__name__, new_card)
         else:

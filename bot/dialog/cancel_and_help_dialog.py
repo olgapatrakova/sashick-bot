@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from asgiref.sync import sync_to_async
 from botbuilder.dialogs import (
     ComponentDialog,
@@ -36,7 +38,7 @@ class CancelAndHelpDialog(ComponentDialog):
         help_message_text = "Here is what you can do with topics:\n" \
                             "1. Drop the topic means you don't want to learn this topic anymore.\n" \
                             "2. My stats will help you learn about your progress. \n" \
-                            "3. Add a topic will help you learn several topics simultaneously.\n" \
+                            "3. Learn new topic will help you learn several topics simultaneously.\n" \
                             "4. Back to topic means you want to proceed learning the current topic."
 
         help_message = MessageFactory.text(
@@ -51,38 +53,42 @@ class CancelAndHelpDialog(ComponentDialog):
     async def process_interruption_choice(self, step_context: WaterfallStepContext) -> DialogTurnResult:
         self.logger.info("process_interruption_choice")
         current_card = step_context.options['current_card']
-        current_deck = await self.find_deck(current_card)
+        # current_deck = await self.find_deck(current_card)
         user_id = step_context.context.activity.from_property.id
+        decks = await self.collect_user_decks(user_id)
         if step_context.result == "Drop the topic":
             return await self.confirmation_step(step_context)
         if step_context.result == "<< Back to topic":
             await step_context.end_dialog(True)
             return DialogTurnResult(DialogTurnStatus.Waiting)
-        if step_context.result == "Add a topic":
-            await step_context.end_dialog(True)
-            return DialogTurnResult(DialogTurnStatus.Waiting)
+        if step_context.result == "Learn new topic":
+            await step_context.context.send_activity(
+                MessageFactory.text(
+                    f"You chose to learn one more topic. Current topic cards will be shown after new cards."))
+            return await step_context.cancel_all_dialogs()
 
         if step_context.result == "My stats":
-            await self.get_statistics(user_id, current_deck)
+            statistics = await self.get_statistics(user_id)
 
             reply = MessageFactory.list([])
-            reply.attachments.append(self.create_thumbnail_card(current_deck))
+            reply.attachments.append(self.create_thumbnail_card(statistics, decks))
             await step_context.context.send_activity(reply)
 
             return await step_context.replace_dialog('InterruptionMenuDialog', {'current_card': current_card})
 
-    def create_thumbnail_card(self, current_deck) -> Attachment:
+    def create_thumbnail_card(self, statistics, decks) -> Attachment:
+        titles = ", ".join(decks)
+        learned = '{0:.3g}'.format(statistics['already_learned'])
         card = ThumbnailCard(
             title="Your statistics",
-            subtitle=f"Topic in progress: {current_deck}",
-            text=f"Started learning: Feb 5th 2020\n"
-                 "Cards to learn: 5\n"
-                 "Already learned: 5%\n"
-                 "Hard cards: 1\n"
-                 "Correct answers: 90%",
+            subtitle=f"Topics in progress: {len(decks)}",
+            text=f"Topic titles: {titles}\n" \
+                 f"You started learning: {statistics['started']}\n" \
+                 f"Cards to learn: {statistics['cards']}\n" \
+                 f"Already learned: {learned}%\n",
             images=[
                 CardImage(
-                    url="https://i.imgur.com/PpmuUr8.png"
+                    url="https://i.imgur.com/XPVZyQC.png"
                 )
             ],
         )
@@ -94,7 +100,6 @@ class CancelAndHelpDialog(ComponentDialog):
 
             if text in ("help", "?"):
                 self.logger.info("interrupt help")
-
                 # inner_dc.context.turn_state['ConversationState']
                 current_card = None
                 if hasattr(self, 'current_card'):
@@ -116,12 +121,14 @@ class CancelAndHelpDialog(ComponentDialog):
         current_deck = await self.find_deck(current_card)
         step_context.values['card'] = current_card
         step_context.values['deck'] = current_deck
+        step_context.values['command'] = step_context.context.activity.text.lower()
         return await step_context.prompt(
             ConfirmPrompt.__name__,
             PromptOptions(prompt=MessageFactory.text(f"You are going to drop {current_deck} topic. Are you sure?")),
         )
 
     async def drop_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
+        current_card = step_context.options['current_card']
         if step_context.result:
             user_id = step_context.context.activity.from_property.id
             await self.drop_topic(user_id, step_context.values['card'])
@@ -129,7 +136,13 @@ class CancelAndHelpDialog(ComponentDialog):
                 MessageFactory.text(f"You have just dropped the topic {step_context.values['deck']}"))
             self.logger.info("end current dialog")
             return await step_context.cancel_all_dialogs()
-        return await step_context.next(None)
+        if step_context.values['command'] == "Drop the topic":
+            return await step_context.begin_dialog('InterruptionMenuDialog', {'current_card': current_card})
+        else:
+            await step_context.end_active_dialog(None)
+            await step_context.continue_dialog()
+            return DialogTurnResult(DialogTurnStatus.Waiting)
+
 
     def interruption_menu(self) -> Activity:
         reply = MessageFactory.list([])
@@ -152,6 +165,13 @@ class CancelAndHelpDialog(ComponentDialog):
                 ),
                 CardAction(
                     type=ActionTypes.message_back,
+                    title="Learn new topic",
+                    text="Learn new topic",
+                    display_text="Learn new topic",
+                    value="Learn new topic",
+                ),
+                CardAction(
+                    type=ActionTypes.message_back,
                     title="<< Back to topic",
                     text="<< Back to topic",
                     display_text="<< Back to topic",
@@ -164,9 +184,28 @@ class CancelAndHelpDialog(ComponentDialog):
         return reply
 
     @sync_to_async
-    def get_statistics(self, user, deck):
-        lmx = LearningMatrix.objects.filter(user_id=user, deck_title=deck)
-        return lmx
+    def collect_user_decks(self, user):
+        titles = []
+        decks_set = LearningMatrix.objects.filter(user_id=user).values("deck_title").distinct()
+        for deck in decks_set:
+            titles.append(deck['deck_title'])
+        return titles
+
+
+    @sync_to_async
+    def get_statistics(self, user):
+        learning_objs = LearningMatrix.objects.filter(user_id=user)
+        learned_number = learning_objs.filter(easy_count__gt = 0).count()
+        learned_percent = learned_number / learning_objs.count() * 100
+        statistics = {
+            'cards': learning_objs.count(),
+            'started': learning_objs.filter(last_shown__lte=datetime.now().astimezone()).order_by(
+                'last_shown', '-hard_count').first().last_shown,
+            'already_learned': learned_percent
+        }
+        if statistics['started'] == datetime.utcfromtimestamp(0).astimezone():
+            statistics['started'] = 'today'
+        return statistics
 
     @sync_to_async
     def find_deck(self, card):
