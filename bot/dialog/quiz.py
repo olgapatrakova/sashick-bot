@@ -1,3 +1,5 @@
+import logging
+
 from asgiref.sync import sync_to_async
 from botbuilder.core import MessageFactory, CardFactory
 from botbuilder.dialogs import ComponentDialog, WaterfallDialog, \
@@ -17,14 +19,17 @@ class QuizDialog(CancelAndHelpDialog):
                                         [self.show_question_step, self.check_answer_step, ]))
         self.add_dialog(TextPrompt(TextPrompt.__name__))
         self.initial_dialog_id = WaterfallDialog.__name__
-
+        self.logger = logging.getLogger(self.__class__.__name__)
     async def show_question_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
+        self.logger.info('show_question_step')
         user_id = step_context.context.activity.from_property.id
         if step_context.options is None:
+            self.logger.info("internal error, card not passed in")
             raise Exception("internal error, card not passed in")
         new_card = step_context.options
 
         if await self.has_card_question(new_card):
+            self.logger.info("self.has_card_question(new_card) true")
             question_to_ask = await self.get_question(new_card, user_id)
             step_context.values['question'] = question_to_ask
             # add this question to ShownQuestions
@@ -33,15 +38,19 @@ class QuizDialog(CancelAndHelpDialog):
             # show picture if there is any for the question
             pic_url = await self.get_image(question_to_ask.id)
             if pic_url:
+                self.logger.info("pic_url")
                 # show question with all answers it has if the question type is 'BTN'
                 many_answers = await self.has_buttons(question_to_ask)
                 if many_answers:
+                    self.logger.info("many_answer")
                     all_answers = await self.get_answers(question_to_ask)
                     reply = MessageFactory.list([])
                     reply.attachments.append(self.create_hero_card(pic_url, question_to_ask, all_answers))
                     await step_context.context.send_activity(reply)
+                    self.logger.info("return waiting")
                     return DialogTurnResult(DialogTurnStatus.Waiting)
                 else:
+                    self.logger.info("not many_answer")
                     reply = Activity(type=ActivityTypes.message)
                     reply.attachments = [
                         self.get_internet_attachment(pic_url, question_to_ask),
@@ -51,32 +60,47 @@ class QuizDialog(CancelAndHelpDialog):
                             content_type="text/plain"
                         )
                     ]
+                    self.logger.info("return text prompt")
                     return await step_context.prompt(
                         TextPrompt.__name__,
                         PromptOptions(prompt=reply),
                     )
             else:
+                self.logger.info("return text prompt")
                 return await step_context.prompt(
                     TextPrompt.__name__,
                     PromptOptions(prompt=MessageFactory.text(f"{question_to_ask}")),
                 )
         else:
+            self.logger.info("return end dialog")
             return await step_context.end_dialog(True)
 
     async def check_answer_step(self, step_context: WaterfallStepContext) -> DialogTurnResult:
-        user_answer = step_context.result
-        is_correct = await self.check_answer(user_answer, step_context.values['question'])
-        if is_correct:
-            await step_context.context.send_activity(MessageFactory.text("Correct!"))
-            return await step_context.end_dialog(True)
+        self.logger.info("check_answer_step")
+        if step_context.result == "No":
+            self.logger.info("step_context.result == No")
+            self.logger.info("return show_question_step")
+            return await step_context.replace_dialog(QuizDialog.__name__, step_context.options)
         else:
-            await step_context.context.send_activity(MessageFactory.text("Not correct."))
-            # show one of the correct answers if the back of the card is different. Else show the back of the card only
-            question = step_context.values['question']
-            if await self.correct_answer_is_different(question):
-                correct_answer = await self.correct_answer(step_context.values['question'])
-                await step_context.context.send_activity(MessageFactory.text(f"Correct answer is: {correct_answer}"))
-            return await step_context.end_dialog(True)
+            self.logger.info("step_context.result != No")
+            user_answer = step_context.result
+            is_correct = await self.check_answer(user_answer, step_context.values['question'])
+            if is_correct:
+                self.logger.info("is correct")
+                await step_context.context.send_activity(MessageFactory.text("Correct!"))
+                self.logger.info("end dialog")
+                return await step_context.end_dialog(True)
+            else:
+                self.logger.info("not is correct")
+                await step_context.context.send_activity(MessageFactory.text("Not correct."))
+                # show one of the correct answers if the back of the card is different. Else show the back of the card only
+                question = step_context.values['question']
+                if await self.correct_answer_is_different(question):
+                    self.logger.info("correct_answer_is_different")
+                    correct_answer = await self.correct_answer(step_context.values['question'])
+                    await step_context.context.send_activity(MessageFactory.text(f"Correct answer is: {correct_answer}"))
+                self.logger.info("end dialog")
+                return await step_context.end_dialog(True)
 
     def get_internet_attachment(self, pic_url, question) -> Attachment:
         # Creates an Attachment to be sent from the bot to the user from a HTTP URL.
