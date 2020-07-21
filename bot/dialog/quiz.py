@@ -38,10 +38,15 @@ class QuizDialog(CancelAndHelpDialog):
             await self.mark_question_as_shown(question_to_ask, user_id)
             # show picture if there is any for the question
             pic_url = await self.get_image(question_to_ask.id)
-            sound_url = await self.get_sound(new_card.id)
-            if sound_url:
+            sound_url = await self.get_sound(question_to_ask.id)
+            if sound_url and pic_url:
                 reply = MessageFactory.list([])
-                reply.attachments.append(self.create_audio_card(sound_url, question_to_ask))
+                reply.attachments.append(self.create_audio_card(sound_url, pic_url, question_to_ask))
+                await step_context.context.send_activity(reply)
+                return DialogTurnResult(DialogTurnStatus.Waiting)
+            elif sound_url:
+                reply = MessageFactory.list([])
+                reply.attachments.append(self.create_audio_card_no_image(sound_url, question_to_ask))
                 await step_context.context.send_activity(reply)
                 return DialogTurnResult(DialogTurnStatus.Waiting)
             elif pic_url:
@@ -140,10 +145,20 @@ class QuizDialog(CancelAndHelpDialog):
         )
         return CardFactory.hero_card(card)
 
-    def create_audio_card(self, sound_url, question) -> Attachment:
+    def create_audio_card(self, sound_url, pic_url, question) -> Attachment:
         card = AudioCard(
             media=[MediaUrl(url=f"{sound_url}")],
             title=f"{question}",
+            image=ThumbnailUrl(
+                url=f"{pic_url}"
+            ),
+        )
+        return CardFactory.audio_card(card)
+
+    def create_audio_card_no_image(self, sound_url, question) -> Attachment:
+        card = AudioCard(
+            media=[MediaUrl(url=f"{sound_url}")],
+            title=f"{question}"
         )
         return CardFactory.audio_card(card)
 
@@ -160,8 +175,8 @@ class QuizDialog(CancelAndHelpDialog):
         return Question.objects.get(pk=question).url
 
     @sync_to_async
-    def get_sound(self, card):
-        return Card.objects.get(pk=card).sound_url
+    def get_sound(self, question):
+        return Question.objects.get(pk=question).sound_url
 
     @sync_to_async
     def correct_answer(self, question):
