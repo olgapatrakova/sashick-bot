@@ -4,7 +4,8 @@ from asgiref.sync import sync_to_async
 from botbuilder.core import MessageFactory, CardFactory
 from botbuilder.dialogs import ComponentDialog, WaterfallDialog, \
     WaterfallStepContext, DialogTurnResult, PromptOptions, TextPrompt, DialogTurnStatus
-from botbuilder.schema import Activity, ActivityTypes, Attachment, HeroCard, CardImage, CardAction, ActionTypes
+from botbuilder.schema import Activity, ActivityTypes, Attachment, HeroCard, CardImage, CardAction, ActionTypes, \
+    AudioCard, MediaUrl, ThumbnailUrl
 from django.db.models import Subquery
 
 from bot.dialog.cancel_and_help_dialog import CancelAndHelpDialog
@@ -37,7 +38,13 @@ class QuizDialog(CancelAndHelpDialog):
             await self.mark_question_as_shown(question_to_ask, user_id)
             # show picture if there is any for the question
             pic_url = await self.get_image(question_to_ask.id)
-            if pic_url:
+            sound_url = await self.get_sound(new_card.id)
+            if sound_url:
+                reply = MessageFactory.list([])
+                reply.attachments.append(self.create_audio_card(sound_url, question_to_ask))
+                await step_context.context.send_activity(reply)
+                return DialogTurnResult(DialogTurnStatus.Waiting)
+            elif pic_url:
                 self.logger.info("pic_url")
                 # show question with all answers it has if the question type is 'BTN'
                 many_answers = await self.has_buttons(question_to_ask)
@@ -133,6 +140,13 @@ class QuizDialog(CancelAndHelpDialog):
         )
         return CardFactory.hero_card(card)
 
+    def create_audio_card(self, sound_url, question) -> Attachment:
+        card = AudioCard(
+            media=[MediaUrl(url=f"{sound_url}")],
+            title=f"{question}",
+        )
+        return CardFactory.audio_card(card)
+
     @sync_to_async
     def get_answers(self, question):
         return list(question.answers.all())
@@ -144,6 +158,10 @@ class QuizDialog(CancelAndHelpDialog):
     @sync_to_async
     def get_image(self, question):
         return Question.objects.get(pk=question).url
+
+    @sync_to_async
+    def get_sound(self, card):
+        return Card.objects.get(pk=card).sound_url
 
     @sync_to_async
     def correct_answer(self, question):
