@@ -8,7 +8,7 @@ from botbuilder.dialogs import (
     DialogTurnStatus, WaterfallDialog, WaterfallStepContext, ChoicePrompt, ConfirmPrompt, PromptOptions
 )
 from botbuilder.schema import ActivityTypes, InputHints, HeroCard, CardAction, ActionTypes, Activity, Attachment, \
-    ThumbnailCard, CardImage
+    ThumbnailCard, CardImage, AnimationCard, MediaUrl
 from botbuilder.core import MessageFactory, CardFactory
 
 from bot.models import Card, LearningMatrix
@@ -35,6 +35,11 @@ class CancelAndHelpDialog(ComponentDialog):
 
     async def show_help(self, step_context: WaterfallStepContext) -> DialogTurnResult:
         self.logger.info("show_help")
+        commands_url = "https://i.imgur.com/wfhWk4Z.gif"
+        reply = MessageFactory.list([])
+        reply.attachments.append(self.create_animations_card(commands_url))
+        await step_context.context.send_activity(reply)
+
         help_message_text = "Here is what you can do with topics:\n" \
                             "1. Drop the topic means you don't want to learn this topic anymore.\n" \
                             "2. My stats will help you learn about your progress. \n" \
@@ -126,6 +131,11 @@ class CancelAndHelpDialog(ComponentDialog):
         step_context.values['deck'] = current_deck
         step_context.values['command'] = step_context.context.activity.text.lower()
         self.logger.info('ConfirmPrompt')
+        drop_url = "https://i.imgur.com/bgVFXs9.gif"
+        reply = MessageFactory.list([])
+        reply.attachments.append(self.create_animations_card(drop_url))
+        await step_context.context.send_activity(reply)
+
         return await step_context.prompt(
             ConfirmPrompt.__name__,
             PromptOptions(prompt=MessageFactory.text(f"You are going to drop {current_deck} topic. Are you sure?")),
@@ -191,6 +201,12 @@ class CancelAndHelpDialog(ComponentDialog):
         reply.attachments.append(CardFactory.hero_card(card))
 
         return reply
+
+    def create_animations_card(self, url) -> Attachment:
+        card = AnimationCard(
+            media=[MediaUrl(url=url)],
+        )
+        return CardFactory.animation_card(card)
 
     @sync_to_async
     def collect_user_decks(self, user):

@@ -6,7 +6,7 @@ from botbuilder.core import MessageFactory, CardFactory
 from botbuilder.dialogs import WaterfallDialog, \
     WaterfallStepContext, DialogTurnResult, PromptOptions, ChoicePrompt, Choice, DialogTurnStatus
 from botbuilder.schema import Attachment, HeroCard, CardImage, CardAction, ActionTypes, AudioCard, MediaUrl, \
-    ThumbnailUrl
+    ThumbnailUrl, AnimationCard
 
 from bot.state import CONVERSATION_STATE
 
@@ -38,8 +38,9 @@ class InitialLearningDialog(CancelAndHelpDialog):
         step_context.values['card'] = new_card
 
         # a quiz question will be shown only if a card was already shown and learned, meaning that it's marked as easy
-        if await self.get_easy_count(new_card, user_id) > 0:
+        if await self.get_easy_count(new_card, user_id) == 0:
             self.logger.info('begin dialog %s',QuizDialog.__name__)
+            step_context.values['quiz'] = True
             return await step_context.begin_dialog(QuizDialog.__name__, new_card)
         else:
             pic_url = await self.get_image(new_card.id)
@@ -88,8 +89,15 @@ class InitialLearningDialog(CancelAndHelpDialog):
 
             await self.mark_easy_hard(step_context.values['card'], user_id, easiness)
             if await self.card_to_show(user_id) is None:
-                await step_context.context.send_activity(
-                    MessageFactory.text("Yay! You have learned all cards in this topic."))
+                reply = MessageFactory.list([])
+                reply.attachments.append(self.create_animation_card())
+                await step_context.context.send_activity(reply)
+                if step_context.values['quiz']:
+                    await step_context.context.send_activity(
+                        MessageFactory.text("Yay! You have revised all cards in this topic."))
+                else:
+                    await step_context.context.send_activity(
+                        MessageFactory.text("Yay! You have learned all cards in this topic."))
                 self.logger.info('end current dialog')
                 return await step_context.end_dialog(True)
 
@@ -132,6 +140,12 @@ class InitialLearningDialog(CancelAndHelpDialog):
             ],
         )
         return CardFactory.audio_card(card)
+
+    def create_animation_card(self) -> Attachment:
+        card = AnimationCard(
+            media=[MediaUrl(url="https://i.imgur.com/blv6SYo.gif")],
+        )
+        return CardFactory.animation_card(card)
 
     @sync_to_async
     def card_to_show(self, user):

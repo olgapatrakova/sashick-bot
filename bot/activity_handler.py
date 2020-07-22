@@ -1,8 +1,8 @@
 from datetime import datetime
 from asgiref.sync import sync_to_async
-from botbuilder.core import ActivityHandler, ConversationState, TurnContext, UserState, MessageFactory
+from botbuilder.core import ActivityHandler, ConversationState, TurnContext, UserState, MessageFactory, CardFactory
 from botbuilder.dialogs import Dialog
-from botbuilder.schema import Attachment, Activity, ActivityTypes, ConversationReference
+from botbuilder.schema import Attachment, Activity, ActivityTypes, ConversationReference, AnimationCard, MediaUrl
 
 from bot.dialog.helper import DialogHelper
 from bot.models import User
@@ -52,6 +52,16 @@ class DialogBot(ActivityHandler):
             await turn_context.send_activity(MessageFactory.text(
                 "Hello, I'm Sashick. I will help you learn new things using spaced repetition technique."))
             await self.welcomed.set(turn_context, True)
+            reply = MessageFactory.list([])
+            reply.attachments.append(self.create_animation_card())
+            await turn_context.send_activity(reply)
+
+            await turn_context.send_activity(MessageFactory.text(
+                "You can control me by sending these commands:\n\n" \
+                "<br/>" \
+                ":white_check_mark: **drop** - to drop a topic at any time of your learning\n\n" \
+                "<br/>" \
+                ":white_check_mark: **?** or **help** - to see your statistics, start new topic or drop the current topic"))
 
         await super(self.__class__, self).on_conversation_update_activity(turn_context)
         await DialogHelper.run_dialog(
@@ -75,6 +85,12 @@ class DialogBot(ActivityHandler):
         self.conversation_references[
             conversation_reference.user.id
         ] = conversation_reference
+
+    def create_animation_card(self) -> Attachment:
+        card = AnimationCard(
+            media=[MediaUrl(url="https://i.imgur.com/A6zuLf4.gif")],
+        )
+        return CardFactory.animation_card(card)
 
     @sync_to_async
     def get_or_create_user(self, user_id):

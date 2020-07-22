@@ -5,7 +5,7 @@ from botbuilder.core import MessageFactory, CardFactory
 from botbuilder.dialogs import ComponentDialog, WaterfallDialog, \
     WaterfallStepContext, DialogTurnResult, PromptOptions, TextPrompt, DialogTurnStatus
 from botbuilder.schema import Activity, ActivityTypes, Attachment, HeroCard, CardImage, CardAction, ActionTypes, \
-    AudioCard, MediaUrl, ThumbnailUrl
+    AudioCard, MediaUrl, ThumbnailUrl, AnimationCard
 from django.db.models import Subquery
 
 from bot.dialog.cancel_and_help_dialog import CancelAndHelpDialog
@@ -99,12 +99,15 @@ class QuizDialog(CancelAndHelpDialog):
             is_correct = await self.check_answer(user_answer, step_context.values['question'])
             if is_correct:
                 self.logger.info("is correct")
+                reply = MessageFactory.list([])
+                reply.attachments.append(self.create_animation_card())
+                await step_context.context.send_activity(reply)
                 await step_context.context.send_activity(MessageFactory.text("Correct!"))
                 self.logger.info("end dialog")
                 return await step_context.end_dialog(True)
             else:
                 self.logger.info("not is correct")
-                await step_context.context.send_activity(MessageFactory.text("Not correct."))
+                await step_context.context.send_activity(MessageFactory.text(":exlamation: Not correct."))
                 # show one of the correct answers if the back of the card is different. Else show the back of the card only
                 question = step_context.values['question']
                 if await self.correct_answer_is_different(question):
@@ -161,6 +164,12 @@ class QuizDialog(CancelAndHelpDialog):
             title=f"{question}"
         )
         return CardFactory.audio_card(card)
+
+    def create_animation_card(self) -> Attachment:
+        card = AnimationCard(
+            media=[MediaUrl(url="https://i.imgur.com/pjEK2Oq.gif")],
+        )
+        return CardFactory.animation_card(card)
 
     @sync_to_async
     def get_answers(self, question):
