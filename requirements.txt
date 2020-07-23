@@ -22,7 +22,7 @@ chardet==3.0.4            # via -r requirements.txt, aiohttp, requests
 cryptography==2.8         # via -r requirements.txt, adal, botframework-connector, pyjwt
 datedelta==1.3            # via -r requirements.txt, recognizers-text-date-time
 django-dbbackup==3.3.0    # via -r requirements.txt
-django==2.1.2             # via -r requirements.txt, django-dbbackup
+django==2.2.13             # via -r requirements.txt, django-dbbackup
 emoji==0.5.4              # via -r requirements.txt, recognizers-text
 grapheme==0.6.0           # via -r requirements.txt, recognizers-text-choice
 idna==2.8                 # via -r requirements.txt, requests, yarl
