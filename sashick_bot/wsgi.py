@@ -11,6 +11,9 @@ import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'sashick_bot.settings')
+if os.environ.get('DJANGO_ENV') == 'production':
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'sashick_bot.production')
+else:
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'sashick_bot.settings')
 
 application = get_wsgi_application()

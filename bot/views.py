@@ -8,8 +8,7 @@ from asgiref.sync import async_to_sync
 import json
 
 
-@async_to_sync
-async def index(request):
+def index(request):
     """
     Main bot message handler.
     """
@@ -20,13 +19,16 @@ async def index(request):
 
     activity = Activity().deserialize(body)
 
-    auth_header = request.headers.get("Authorization") or ""
+    auth_header = request.META['HTTP_AUTHORIZATION'] if 'HTTP_AUTHORIZATION' in request.META else ""
 
-    response = await ADAPTER.process_activity(activity, auth_header, BOT.on_turn)
+    response = get_bot_response(activity, auth_header)
     if response:
         return JsonResponse(response.body, safe=False, status=response.status)
     return HttpResponse(status=200)
 
+@async_to_sync
+async def get_bot_response(activity, auth_header):
+    return await ADAPTER.process_activity(activity, auth_header, BOT.on_turn)
 
 @async_to_sync
 async def notify(request):

@@ -115,7 +115,10 @@ class ChooseTopicDialog(ComponentDialog):
 
     @sync_to_async
     def deck_id(self, deck_title):
-        return Deck.objects.get(title=deck_title).id
+        try:
+            return Deck.objects.get(title=deck_title).id
+        except Deck.DoesNotExist:
+            raise
 
     @sync_to_async
     def cards(self, deck_id):

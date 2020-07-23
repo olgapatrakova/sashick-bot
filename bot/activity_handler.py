@@ -38,7 +38,8 @@ class DialogBot(ActivityHandler):
 
     async def on_turn(self, turn_context: TurnContext):
         await super().on_turn(turn_context)
-        await self.get_or_create_user(turn_context.activity.from_property.id)
+        user_id = turn_context.activity.from_property.id
+        await self.get_or_create_user(user_id)
         # Save any state changes that might have ocurred during the turn.
         await self.conversation_state.save_changes(turn_context)
         await self.user_state.save_changes(turn_context)
@@ -47,11 +48,12 @@ class DialogBot(ActivityHandler):
         self._add_conversation_reference(turn_context.activity)
         user_id = turn_context.activity.members_added[1].id
         await self.get_or_create_user(user_id)
-        already_welcomed = await self.welcomed.get(turn_context, default_value_or_factory=False)
+        already_welcomed = await self.welcomed.get(turn_context, default_value_or_factory=lambda: False)
         if not already_welcomed:
             await turn_context.send_activity(MessageFactory.text(
                 "Hello, I'm Sashick. I will help you learn new things using spaced repetition technique."))
             await self.welcomed.set(turn_context, True)
+            await self.conversation_state.save_changes(turn_context)
             reply = MessageFactory.list([])
             reply.attachments.append(self.create_animation_card())
             await turn_context.send_activity(reply)
@@ -70,6 +72,22 @@ class DialogBot(ActivityHandler):
 
     async def on_message_activity(self, turn_context: TurnContext):
         self._add_conversation_reference(turn_context.activity)
+        already_welcomed = await self.welcomed.get(turn_context, default_value_or_factory=lambda: False)
+
+        if not already_welcomed or turn_context.activity.text == '/start':
+            await turn_context.send_activity(MessageFactory.text(
+                "Hello, I'm Sashick. I will help you learn new things using spaced repetition technique."))
+            await self.welcomed.set(turn_context, True)
+            await self.conversation_state.save_changes(turn_context)
+            reply = MessageFactory.list([])
+            reply.attachments.append(self.create_animation_card())
+            await turn_context.send_activity(reply)
+            await turn_context.send_activity(MessageFactory.text(
+                "You can control me by sending these commands:\n\n" \
+                "<br/>" \
+                ":white_check_mark: **drop** - to drop a topic at any time of your learning\n\n" \
+                "<br/>" \
+                ":white_check_mark: **?** or **help** - to see your statistics, start new topic or drop the current topic"))
         await DialogHelper.run_dialog(
             self.dialog, turn_context, self.conversation_state.create_property("DialogState"),
         )
