@@ -107,7 +107,7 @@ class QuizDialog(CancelAndHelpDialog):
                 return await step_context.end_dialog(True)
             else:
                 self.logger.info("not is correct")
-                await step_context.context.send_activity(MessageFactory.text(":exlamation: Not correct."))
+                await step_context.context.send_activity(MessageFactory.text(":exclamation: Not correct."))
                 # show one of the correct answers if the back of the card is different. Else show the back of the card only
                 question = step_context.values['question']
                 if await self.correct_answer_is_different(question):
