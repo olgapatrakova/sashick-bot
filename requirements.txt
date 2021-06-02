@@ -54,7 +54,7 @@ requests==2.22.0          # via -r requirements.txt, adal, botframework-connecto
 six==1.15.0               # via -r requirements.txt, astroid, cryptography, django-dbbackup, isodate, multipledispatch, python-dateutil, websocket-client
 sqlparse==0.3.1           # via -r requirements.txt
 toml==0.10.1              # via -r requirements.txt, pylint
-urllib3==1.25.9           # via -r requirements.txt, requests
+urllib3==1.26.5           # via -r requirements.txt, requests
 websocket-client==0.57.0  # via -r requirements.txt
 whitenoise==5.1.0         # via -r requirements.txt
 wrapt==1.12.1             # via -r requirements.txt, astroid
